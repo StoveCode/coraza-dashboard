@@ -175,6 +175,114 @@ Der Backend-Tailer verarbeitet nur Zeilen mit einem `match`-Feld:
 
 `disruptive: true` = Block, `disruptive: false` = Detection
 
+## OWASP CRS Ruleset anpassen
+
+Alle Änderungen in `services/coraza/coraza-spoa.yaml` unter `directives:`.
+Nach jeder Änderung: `docker compose restart coraza-spoa` — kein Rebuild nötig.
+
+### Paranoia Level erhöhen
+
+Das CRS hat 4 Paranoia-Level (PL1 = Standard, PL4 = sehr streng).
+Höheres Level = mehr Rules aktiv = mehr False Positives möglich.
+
+```yaml
+directives: |
+  Include @coraza.conf-recommended
+  Include @crs-setup.conf.example
+
+  # Paranoia Level 2 aktivieren (Standard ist 1)
+  SecAction \
+    "id:900000,\
+    phase:1,\
+    nolog,\
+    pass,\
+    t:none,\
+    setvar:tx.blocking_paranoia_level=2"
+
+  Include @owasp_crs/*.conf
+  SecRuleEngine On
+```
+
+### Anomaly Score Threshold anpassen
+
+CRS arbeitet mit Anomaly Scoring — erst wenn der Score einen Schwellwert überschreitet, wird geblockt.
+Default: Inbound = 5, Outbound = 4.
+
+```yaml
+directives: |
+  Include @coraza.conf-recommended
+  Include @crs-setup.conf.example
+
+  # Threshold erhöhen = weniger Blocks (toleranter)
+  SecAction \
+    "id:900110,\
+    phase:1,\
+    nolog,\
+    pass,\
+    t:none,\
+    setvar:tx.inbound_anomaly_score_threshold=10,\
+    setvar:tx.outbound_anomaly_score_threshold=10"
+
+  Include @owasp_crs/*.conf
+  SecRuleEngine On
+```
+
+### Einzelne Rules deaktivieren
+
+```yaml
+directives: |
+  Include @coraza.conf-recommended
+  Include @crs-setup.conf.example
+  Include @owasp_crs/*.conf
+  SecRuleEngine On
+
+  # Rule 920350 deaktivieren (Host Header mit IP)
+  SecRuleRemoveById 920350
+
+  # Alle Rules mit Tag "attack-sqli" deaktivieren
+  SecRuleRemoveByTag "attack-sqli"
+```
+
+### Nur Detection-Modus (kein Blocking)
+
+```yaml
+directives: |
+  Include @coraza.conf-recommended
+  Include @crs-setup.conf.example
+  Include @owasp_crs/*.conf
+
+  # DetectionOnly = loggt, blockt aber nicht
+  SecRuleEngine DetectionOnly
+```
+
+### Eigene Rules hinzufügen
+
+```yaml
+directives: |
+  Include @coraza.conf-recommended
+  Include @crs-setup.conf.example
+  Include @owasp_crs/*.conf
+  SecRuleEngine On
+
+  # Eigene Rule: Block Requests mit bestimmtem User-Agent
+  SecRule REQUEST_HEADERS:User-Agent "bad-bot" \
+    "id:1000001,\
+    phase:1,\
+    deny,\
+    status:403,\
+    msg:'Bad Bot blocked'"
+```
+
+### Änderungen anwenden
+
+```bash
+# Nur coraza-spoa neu starten (kein Rebuild)
+docker compose restart coraza-spoa
+
+# Logs prüfen
+docker compose logs -f coraza-spoa
+```
+
 ## Projektstruktur
 
 ```
