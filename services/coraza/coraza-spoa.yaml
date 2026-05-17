@@ -3,6 +3,8 @@ log_level: info
 log_file: /var/log/coraza/coraza.log
 log_format: json
 
+default_application: sample_app
+
 applications:
   - name: sample_app
     directives: |

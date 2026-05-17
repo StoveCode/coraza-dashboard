@@ -15,8 +15,9 @@ services:
       retries: 10
 
   coraza-spoa:
-    image: ghcr.io/corazawaf/coraza-spoa:latest
-    command: ["-config", "/etc/coraza-spoa/coraza-spoa.yaml"]
+    image: coraza-spoa:local
+    entrypoint: ["/coraza-spoa"]
+    command: ["--config", "/etc/coraza-spoa/coraza-spoa.yaml"]
     volumes:
       - ./services/coraza/coraza-spoa.yaml:/etc/coraza-spoa/coraza-spoa.yaml:ro
       - coraza_logs:/var/log/coraza    # shared log volume!
@@ -29,12 +30,17 @@ services:
     image: haproxy:2.9-alpine
     volumes:
       - ./services/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-      - ./services/haproxy/coraza-spoe.cfg:/etc/haproxy/coraza.cfg:ro
+      - ./services/haproxy/coraza-spoe.cfg:/usr/local/etc/haproxy/coraza.cfg:ro
     ports:
       - "${HAPROXY_PORT:-80}:80"
       - "${HAPROXY_STATS_PORT:-8404}:8404"
     depends_on:
       - coraza-spoa
+
+  httpbin:
+    image: mccutchen/go-httpbin:latest
+    ports:
+      - "8081:8080"
 
   backend:
     build: ./services/backend
