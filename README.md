@@ -175,6 +175,47 @@ Der Backend-Tailer verarbeitet nur Zeilen mit einem `match`-Feld:
 
 `disruptive: true` = Block, `disruptive: false` = Detection
 
+## Rules Management UI
+
+Die **Rules**-Seite im Dashboard (`/rules`) erlaubt es, die WAF-Konfiguration live anzupassen — ohne Rebuild oder Restart.
+
+### Features
+
+| Feature                  | Beschreibung                                                  |
+|--------------------------|---------------------------------------------------------------|
+| **Engine Mode**          | `On` (blockieren) / `Detection Only` (nur loggen) / `Off`    |
+| **Paranoia Level**       | Level 1–4 — höher = mehr Rules aktiv, mehr False Positives   |
+| **Anomaly Thresholds**   | Inbound + Outbound Score-Schwellwert separat einstellbar      |
+| **CRS-Kategorien**       | SQLi, XSS, RCE, LFI, SSRF, Scanner etc. per Toggle an/aus   |
+| **Einzelne Rule-IDs**    | Beliebige Rule-IDs per Eingabefeld deaktivieren              |
+
+### Wie es funktioniert
+
+1. Änderungen vornehmen → **Save Changes** klicken
+2. Backend schreibt neues `coraza-spoa.yaml` in ein shared Docker Volume
+3. coraza-spoa erkennt die Änderung via `--autoreload` (fsnotify) und lädt automatisch neu
+4. **Kein Restart, kein Rebuild nötig**
+
+```
+[Frontend] → PUT /api/rules/config → [Backend]
+                                          │
+                               writes coraza-spoa.yaml
+                                          │
+                               shared Docker Volume
+                                          │
+                               [coraza-spoa] ← fsnotify reload
+```
+
+### API Endpoints (Rules)
+
+| Method | Pfad                   | Beschreibung                          |
+|--------|------------------------|---------------------------------------|
+| GET    | /api/rules/config      | Aktuelle Rules-Konfiguration lesen    |
+| PUT    | /api/rules/config      | Konfiguration speichern + Reload      |
+| GET    | /api/rules/categories  | Liste der CRS-Kategorien              |
+
+---
+
 ## OWASP CRS Ruleset anpassen
 
 Alle Änderungen in `services/coraza/coraza-spoa.yaml` unter `directives:`.
