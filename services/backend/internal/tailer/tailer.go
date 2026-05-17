@@ -54,6 +54,7 @@ func (t *Tailer) Run(ctx context.Context) {
 		Follow:    true,
 		ReOpen:    true,
 		MustExist: false,
+		Poll:      true, // use polling instead of inotify to avoid container crashes
 		Logger:    tail.DiscardingLogger,
 	}
 
