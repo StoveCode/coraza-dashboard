@@ -9,14 +9,34 @@
     </div>
 
     <!-- Timeline (full width) -->
-    <TimelineChart :data="stats?.events_per_hour" />
+    <ChartCard title="Events / Hour (last 24h)">
+      <template #default="{ expanded }">
+        <TimelineChart :data="stats?.events_per_hour" :expanded="expanded" />
+      </template>
+    </ChartCard>
 
     <!-- 2-column charts -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <TopIPsChart :data="stats?.top_ips" />
-      <TopRulesChart :data="stats?.top_rules" />
-      <TopTagsChart :data="stats?.top_tags" />
-      <PhaseChart :data="stats?.top_phases" />
+      <ChartCard title="Top Client IPs">
+        <template #default="{ expanded }">
+          <TopIPsChart :data="stats?.top_ips" :expanded="expanded" />
+        </template>
+      </ChartCard>
+      <ChartCard title="Top Rules">
+        <template #default="{ expanded }">
+          <TopRulesChart :data="stats?.top_rules" :expanded="expanded" />
+        </template>
+      </ChartCard>
+      <ChartCard title="Top OWASP CRS Tags">
+        <template #default="{ expanded }">
+          <TopTagsChart :data="stats?.top_tags" :expanded="expanded" />
+        </template>
+      </ChartCard>
+      <ChartCard title="Phase Distribution">
+        <template #default="{ expanded }">
+          <PhaseChart :data="stats?.top_phases" :expanded="expanded" />
+        </template>
+      </ChartCard>
     </div>
 
     <div v-if="loading" class="text-center text-gray-500 py-4">Loading...</div>
@@ -28,6 +48,7 @@
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useStatsStore } from '../stores/stats'
 import StatCard from '../components/StatCard.vue'
+import ChartCard from '../components/ChartCard.vue'
 import TimelineChart from '../components/TimelineChart.vue'
 import TopIPsChart from '../components/TopIPsChart.vue'
 import TopRulesChart from '../components/TopRulesChart.vue'

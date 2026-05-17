@@ -1,8 +1,7 @@
 <template>
-  <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
-    <h3 class="text-sm font-semibold text-gray-400 mb-3">Top Client IPs</h3>
+  <div :class="expanded ? 'h-[500px]' : 'h-40'">
     <Bar v-if="chartData" :data="chartData" :options="options" />
-    <div v-else class="h-48 flex items-center justify-center text-gray-600">No data</div>
+    <div v-else class="h-full flex items-center justify-center text-gray-600">No data</div>
   </div>
 </template>
 
@@ -14,7 +13,10 @@ import type { TopEntry } from '../api/stats'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 
-const props = defineProps<{ data: TopEntry[] | null | undefined }>()
+const props = defineProps<{
+  data: TopEntry[] | null | undefined
+  expanded?: boolean
+}>()
 
 const chartData = computed(() => {
   if (!props.data?.length) return null
@@ -30,6 +32,7 @@ const chartData = computed(() => {
 
 const options = {
   responsive: true,
+  maintainAspectRatio: false,
   indexAxis: 'y' as const,
   plugins: { legend: { display: false } },
   scales: {
