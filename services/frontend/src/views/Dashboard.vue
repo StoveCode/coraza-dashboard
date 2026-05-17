@@ -25,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useStatsStore } from '../stores/stats'
 import StatCard from '../components/StatCard.vue'
 import TimelineChart from '../components/TimelineChart.vue'
@@ -43,5 +43,7 @@ const topRule = computed(() => {
   return r ? String(r.rule_id) : '-'
 })
 
-onMounted(() => store.load())
+onMounted(() => { store.load(); refreshTimer = setInterval(() => store.load(), 30000) })
+let refreshTimer: ReturnType<typeof setInterval>
+onUnmounted(() => clearInterval(refreshTimer))
 </script>
