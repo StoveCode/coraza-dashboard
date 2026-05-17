@@ -2,13 +2,13 @@
   <div class="p-6 space-y-4">
     <div class="flex items-center justify-between">
       <h1 class="text-xl font-bold text-gray-100">WAF Events</h1>
-      <span class="text-sm text-gray-400">{{ total }} total</span>
+      <span class="text-sm text-gray-400">{{ store.total }} total</span>
     </div>
 
     <FilterBar @apply="onFilter" />
 
     <div class="bg-gray-900 border border-gray-800 rounded-xl">
-      <EventsTable :events="events" />
+      <EventsTable :events="store.events" />
     </div>
 
     <!-- Pagination -->
@@ -24,8 +24,8 @@
       </button>
     </div>
 
-    <div v-if="loading" class="text-center text-gray-500 py-4">Loading...</div>
-    <div v-if="error" class="text-center text-red-400 py-4">{{ error }}</div>
+    <div v-if="store.loading" class="text-center text-gray-500 py-4">Loading...</div>
+    <div v-if="store.error" class="text-center text-red-400 py-4">{{ store.error }}</div>
   </div>
 </template>
 
@@ -37,13 +37,12 @@ import FilterBar from '../components/FilterBar.vue'
 import EventsTable from '../components/EventsTable.vue'
 
 const store = useEventsStore()
-const { events, total, loading, error } = store
 
 const page = ref(0)
 const perPage = 50
 const activeFilter = ref<EventsFilter>({})
 
-const totalPages = computed(() => Math.max(1, Math.ceil(total / perPage)))
+const totalPages = computed(() => Math.max(1, Math.ceil(store.total / perPage)))
 
 function load() {
   store.load({ ...activeFilter.value, limit: perPage, offset: page.value * perPage })
