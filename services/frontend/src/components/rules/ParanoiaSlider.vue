@@ -72,7 +72,7 @@ const PARANOIA_INFO: Record<number, {
 }> = {
   1: {
     label: 'Level 1 — Standard',
-    rules: '~500 Rules aktiv',
+    rules: '213 Rules aktiv (CRS v4)',
     description: 'Grundschutz gegen die häufigsten Angriffe. Kaum False Positives. Für die meisten Webapplikationen geeignet.',
     categories: ['SQL Injection (Basis)', 'XSS (Basis)', 'Path Traversal', 'Scanner-Erkennung'],
     falsePositives: 'Sehr gering',
@@ -80,7 +80,7 @@ const PARANOIA_INFO: Record<number, {
   },
   2: {
     label: 'Level 2 — Erhöht',
-    rules: '~900 Rules aktiv',
+    rules: '302 Rules aktiv (CRS v4)',
     description: 'Erweiterte Erkennung mit aggressiverem Pattern-Matching. Erste False Positives bei komplexen Applikationen möglich.',
     categories: ['Alles aus PL1', 'SQLi (erweitert)', 'XSS (erweitert)', 'HTTP Protocol Attacks', 'Remote File Inclusion'],
     falsePositives: 'Gering bis moderat',
@@ -88,7 +88,7 @@ const PARANOIA_INFO: Record<number, {
   },
   3: {
     label: 'Level 3 — Streng',
-    rules: '~1200 Rules aktiv',
+    rules: '332 Rules aktiv (CRS v4)',
     description: 'Sehr restriktiv. Viele False Positives — erfordert intensives Whitelisting. Nur mit sorgfältigem Tuning produktiv einsetzbar.',
     categories: ['Alles aus PL2', 'PHP Injection', 'Node.js Injection', 'Session Fixation', 'HTTP Splitting'],
     falsePositives: 'Hoch — Tuning erforderlich',
@@ -96,7 +96,7 @@ const PARANOIA_INFO: Record<number, {
   },
   4: {
     label: 'Level 4 — Paranoid',
-    rules: '~1400 Rules aktiv',
+    rules: '341 Rules aktiv (CRS v4)',
     description: 'Maximale Erkennung. Extrem viele False Positives. Fast jeder komplexe Request triggert Rules. Nur für Hochsicherheitsumgebungen.',
     categories: ['Alles aus PL3', 'Erweiterte Encoding-Angriffe', 'Ultra-aggressive Pattern-Matches'],
     falsePositives: 'Sehr hoch — kaum produktiv nutzbar ohne umfangreiches Tuning',
