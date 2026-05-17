@@ -1,0 +1,20 @@
+# Gitignore for coraza-dashboard
+
+# Environment files
+.env
+*.env.local
+
+# Go build artifacts
+services/backend/backend
+
+# Postgres data
+data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.swp

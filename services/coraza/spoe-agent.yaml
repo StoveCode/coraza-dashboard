@@ -1,0 +1,28 @@
+# Coraza SPOE Agent Configuration
+#
+# This file configures the coraza-spoe agent binary.
+# coraza-spoe bridges HAProxy SPOE with the Coraza WAF library.
+#
+# GitHub: https://github.com/corazawaf/coraza-spoe
+# Usage:  coraza-spoe -config /etc/coraza/spoe-agent.yaml
+
+bind: "0.0.0.0:9000"
+
+# Coraza WAF configuration file
+coraza_config: /etc/coraza/coraza.conf
+
+# Worker threads (match HAProxy nbthread or CPU cores)
+workers: 4
+
+# Log level: debug, info, warn, error
+log_level: info
+
+# Audit log destination (also set in coraza.conf)
+audit_log:
+  enabled: true
+  format: json
+  # Option A: write to file (then ship with a log forwarder)
+  file: /var/log/coraza/audit.log
+  # Option B: send directly to coraza-dashboard backend via HTTP
+  # Uncomment and set the correct URL:
+  # http_endpoint: http://backend:8080/api/log
