@@ -1,0 +1,17 @@
+bind: 0.0.0.0:9000
+log_level: info
+log_file: /var/log/coraza/coraza.log
+log_format: json
+
+applications:
+  - name: sample_app
+    directives: |
+      Include @coraza.conf-recommended
+      Include @crs-setup.conf.example
+      Include @owasp_crs/*.conf
+      SecRuleEngine On
+    response_check: false
+    transaction_ttl_ms: 60000
+    log_level: info
+    log_file: /var/log/coraza/coraza.log
+    log_format: json

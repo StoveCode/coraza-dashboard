@@ -2,194 +2,199 @@ package db
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/stovecode/coraza-dashboard/backend/internal/models"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/corazawaf/coraza-dashboard/internal/models"
 )
 
 // InsertEvent inserts a WAFEvent into the database.
-func InsertEvent(ctx context.Context, e *models.WAFEvent) error {
-	if e.ID == uuid.Nil {
-		e.ID = uuid.New()
-	}
-	if e.Timestamp.IsZero() {
-		e.Timestamp = time.Now().UTC()
-	}
-
-	rawJSON, err := json.Marshal(e.RawLog)
-	if err != nil {
-		rawJSON = []byte("{}")
-	}
-
-	_, err = Pool.Exec(ctx, `
-		INSERT INTO waf_events (id, timestamp, client_ip, method, uri, rule_id, rule_msg, severity, action, raw_log)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`, e.ID, e.Timestamp, e.ClientIP, e.Method, e.URI, e.RuleID, e.RuleMsg, e.Severity, e.Action, rawJSON)
+func InsertEvent(ctx context.Context, pool *pgxpool.Pool, e *models.WAFEvent) error {
+	_, err := pool.Exec(ctx, `
+		INSERT INTO waf_events
+			(timestamp, client_ip, server, uri, rule_id, rule_msg, rule_file,
+			 severity, severity_id, phase, phase_id, disruptive, tags, data, unique_id, raw_log)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+	`, e.Timestamp, e.Client, e.Server, e.URI, e.RuleID, e.RuleMsg, e.RuleFile,
+		e.Severity, e.SeverityID, e.Phase, e.PhaseID, e.Disruptive,
+		e.Tags, e.Data, e.UniqueID, e.RawLog)
 	return err
 }
 
-// ListEvents returns a paginated, filtered list of WAF events.
-func ListEvents(ctx context.Context, f models.EventFilter) ([]models.WAFEvent, int64, error) {
-	where := []string{}
-	args := []interface{}{}
-	idx := 1
+// ListFilter holds filter params for ListEvents.
+type ListFilter struct {
+	Limit      int
+	Offset     int
+	From       time.Time
+	To         time.Time
+	Disruptive *bool
+	ClientIP   string
+}
 
-	if f.From != nil {
-		where = append(where, fmt.Sprintf("timestamp >= $%d", idx))
-		args = append(args, *f.From)
-		idx++
+// ListResult is the paginated response.
+type ListResult struct {
+	Total  int64
+	Events []models.WAFEvent
+}
+
+// ListEvents returns a paginated list of events.
+func ListEvents(ctx context.Context, pool *pgxpool.Pool, f ListFilter) (*ListResult, error) {
+	args := []interface{}{}
+	where := "WHERE 1=1"
+	i := 1
+
+	if !f.From.IsZero() {
+		where += " AND timestamp >= $" + itoa(i)
+		args = append(args, f.From)
+		i++
 	}
-	if f.To != nil {
-		where = append(where, fmt.Sprintf("timestamp <= $%d", idx))
-		args = append(args, *f.To)
-		idx++
+	if !f.To.IsZero() {
+		where += " AND timestamp <= $" + itoa(i)
+		args = append(args, f.To)
+		i++
 	}
-	if f.Action != "" {
-		where = append(where, fmt.Sprintf("action = $%d", idx))
-		args = append(args, f.Action)
-		idx++
+	if f.Disruptive != nil {
+		where += " AND disruptive = $" + itoa(i)
+		args = append(args, *f.Disruptive)
+		i++
 	}
 	if f.ClientIP != "" {
-		where = append(where, fmt.Sprintf("client_ip = $%d", idx))
+		where += " AND client_ip = $" + itoa(i)
 		args = append(args, f.ClientIP)
-		idx++
+		i++
 	}
 
-	whereClause := ""
-	if len(where) > 0 {
-		whereClause = "WHERE " + strings.Join(where, " AND ")
-	}
+	countArgs := make([]interface{}, len(args))
+	copy(countArgs, args)
 
-	// Count total
 	var total int64
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM waf_events %s", whereClause)
-	if err := Pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("count events: %w", err)
+	if err := pool.QueryRow(ctx, "SELECT COUNT(*) FROM waf_events "+where, countArgs...).Scan(&total); err != nil {
+		return nil, err
 	}
 
-	// Pagination args
 	limit := f.Limit
-	if limit <= 0 || limit > 1000 {
+	if limit <= 0 {
 		limit = 50
 	}
-	offset := f.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	args = append(args, limit, f.Offset)
 
-	query := fmt.Sprintf(`
-		SELECT id, timestamp, client_ip, method, uri, rule_id, rule_msg, severity, action, raw_log
-		FROM waf_events %s
+	rows, err := pool.Query(ctx, `
+		SELECT id, timestamp, client_ip, server, uri, rule_id, rule_msg, rule_file,
+		       severity, severity_id, phase, phase_id, disruptive, tags, data, unique_id
+		FROM waf_events `+where+`
 		ORDER BY timestamp DESC
-		LIMIT $%d OFFSET $%d
-	`, whereClause, idx, idx+1)
-	args = append(args, limit, offset)
-
-	rows, err := Pool.Query(ctx, query, args...)
+		LIMIT $`+itoa(i)+` OFFSET $`+itoa(i+1), args...)
 	if err != nil {
-		return nil, 0, fmt.Errorf("list events: %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 
-	events := make([]models.WAFEvent, 0, limit)
+	var events []models.WAFEvent
 	for rows.Next() {
 		var e models.WAFEvent
-		var rawJSON []byte
-		if err := rows.Scan(&e.ID, &e.Timestamp, &e.ClientIP, &e.Method, &e.URI,
-			&e.RuleID, &e.RuleMsg, &e.Severity, &e.Action, &rawJSON); err != nil {
-			return nil, 0, err
-		}
-		if err := json.Unmarshal(rawJSON, &e.RawLog); err != nil {
-			e.RawLog = map[string]interface{}{}
+		if err := rows.Scan(&e.ID, &e.Timestamp, &e.Client, &e.Server, &e.URI,
+			&e.RuleID, &e.RuleMsg, &e.RuleFile, &e.Severity, &e.SeverityID,
+			&e.Phase, &e.PhaseID, &e.Disruptive, &e.Tags, &e.Data, &e.UniqueID); err != nil {
+			return nil, err
 		}
 		events = append(events, e)
 	}
-
-	return events, total, rows.Err()
+	return &ListResult{Total: total, Events: events}, nil
 }
 
-// GetStats returns aggregated WAF statistics.
-func GetStats(ctx context.Context) (*models.Stats, error) {
-	stats := &models.Stats{}
+// GetStats returns aggregated statistics.
+func GetStats(ctx context.Context, pool *pgxpool.Pool) (*models.Stats, error) {
+	var s models.Stats
 
-	// Totals
-	err := Pool.QueryRow(ctx, `
-		SELECT
-			COUNT(*) FILTER (WHERE action = 'block'),
-			COUNT(*) FILTER (WHERE action = 'detect')
-		FROM waf_events
-	`).Scan(&stats.TotalBlocks, &stats.TotalDetections)
-	if err != nil {
-		return nil, fmt.Errorf("totals: %w", err)
-	}
+	// Counts
+	_ = pool.QueryRow(ctx, "SELECT COUNT(*) FROM waf_events WHERE disruptive=true").Scan(&s.TotalBlocks)
+	_ = pool.QueryRow(ctx, "SELECT COUNT(*) FROM waf_events WHERE disruptive=false").Scan(&s.TotalDetections)
 
-	// Top IPs (blocked)
-	rows, err := Pool.Query(ctx, `
-		SELECT client_ip, COUNT(*) AS cnt
-		FROM waf_events
-		WHERE action = 'block'
-		GROUP BY client_ip
-		ORDER BY cnt DESC
-		LIMIT 10
-	`)
-	if err != nil {
-		return nil, fmt.Errorf("top ips: %w", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var ip models.IPCount
-		if err := rows.Scan(&ip.IP, &ip.Count); err != nil {
-			return nil, err
+	// Top IPs
+	rows, err := pool.Query(ctx, `
+		SELECT client_ip, COUNT(*) as cnt FROM waf_events
+		WHERE client_ip IS NOT NULL AND client_ip != ''
+		GROUP BY client_ip ORDER BY cnt DESC LIMIT 10`)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var e models.TopEntry
+			_ = rows.Scan(&e.Label, &e.Count)
+			s.TopIPs = append(s.TopIPs, e)
 		}
-		stats.TopIPs = append(stats.TopIPs, ip)
 	}
-	rows.Close()
 
 	// Top Rules
-	rows, err = Pool.Query(ctx, `
-		SELECT rule_id, rule_msg, COUNT(*) AS cnt
-		FROM waf_events
-		WHERE rule_id != ''
-		GROUP BY rule_id, rule_msg
-		ORDER BY cnt DESC
-		LIMIT 10
-	`)
-	if err != nil {
-		return nil, fmt.Errorf("top rules: %w", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var r models.RuleCount
-		if err := rows.Scan(&r.RuleID, &r.RuleMsg, &r.Count); err != nil {
-			return nil, err
+	rows2, err := pool.Query(ctx, `
+		SELECT rule_id, COALESCE(MAX(rule_msg),''), COUNT(*) as cnt FROM waf_events
+		WHERE rule_id IS NOT NULL
+		GROUP BY rule_id ORDER BY cnt DESC LIMIT 10`)
+	if err == nil {
+		defer rows2.Close()
+		for rows2.Next() {
+			var e models.TopRule
+			_ = rows2.Scan(&e.RuleID, &e.Msg, &e.Count)
+			s.TopRules = append(s.TopRules, e)
 		}
-		stats.TopRules = append(stats.TopRules, r)
 	}
-	rows.Close()
+
+	// Top Tags
+	rows3, err := pool.Query(ctx, `
+		SELECT tag, COUNT(*) as cnt FROM waf_events, UNNEST(tags) AS tag
+		GROUP BY tag ORDER BY cnt DESC LIMIT 10`)
+	if err == nil {
+		defer rows3.Close()
+		for rows3.Next() {
+			var e models.TopEntry
+			_ = rows3.Scan(&e.Label, &e.Count)
+			s.TopTags = append(s.TopTags, e)
+		}
+	}
+
+	// Top Phases
+	rows4, err := pool.Query(ctx, `
+		SELECT phase, COUNT(*) as cnt FROM waf_events
+		WHERE phase IS NOT NULL AND phase != ''
+		GROUP BY phase ORDER BY cnt DESC`)
+	if err == nil {
+		defer rows4.Close()
+		for rows4.Next() {
+			var e models.TopEntry
+			_ = rows4.Scan(&e.Label, &e.Count)
+			s.TopPhases = append(s.TopPhases, e)
+		}
+	}
 
 	// Events per hour (last 24h)
-	rows, err = Pool.Query(ctx, `
-		SELECT date_trunc('hour', timestamp) AS hour, COUNT(*) AS cnt
-		FROM waf_events
+	rows5, err := pool.Query(ctx, `
+		SELECT date_trunc('hour', timestamp) as hr, COUNT(*) as cnt FROM waf_events
 		WHERE timestamp >= NOW() - INTERVAL '24 hours'
-		GROUP BY hour
-		ORDER BY hour ASC
-	`)
-	if err != nil {
-		return nil, fmt.Errorf("events per hour: %w", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var h models.HourCount
-		if err := rows.Scan(&h.Hour, &h.Count); err != nil {
-			return nil, err
+		GROUP BY hr ORDER BY hr`)
+	if err == nil {
+		defer rows5.Close()
+		for rows5.Next() {
+			var b models.HourBucket
+			_ = rows5.Scan(&b.Hour, &b.Count)
+			s.EventsPerHour = append(s.EventsPerHour, b)
 		}
-		stats.EventsPerHour = append(stats.EventsPerHour, h)
 	}
 
-	return stats, rows.Err()
+	return &s, nil
+}
+
+func itoa(i int) string {
+	return strconv(i)
+}
+
+func strconv(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	b := []byte{}
+	for n > 0 {
+		b = append([]byte{byte('0' + n%10)}, b...)
+		n /= 10
+	}
+	return string(b)
 }

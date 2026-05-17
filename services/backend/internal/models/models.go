@@ -2,58 +2,52 @@ package models
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
-// WAFEvent represents a single WAF audit log entry stored in the database.
+// WAFEvent represents a single WAF rule match from coraza-spoa JSON logs.
 type WAFEvent struct {
-	ID        uuid.UUID              `json:"id"`
-	Timestamp time.Time              `json:"timestamp"`
-	ClientIP  string                 `json:"client_ip"`
-	Method    string                 `json:"method"`
-	URI       string                 `json:"uri"`
-	RuleID    string                 `json:"rule_id"`
-	RuleMsg   string                 `json:"rule_msg"`
-	Severity  string                 `json:"severity"`
-	Action    string                 `json:"action"`
-	RawLog    map[string]interface{} `json:"raw_log"`
+	ID         string    `json:"id"`
+	Timestamp  time.Time `json:"timestamp"`
+	Client     string    `json:"client_ip"`
+	Server     string    `json:"server"`
+	URI        string    `json:"uri"`
+	RuleID     int       `json:"rule_id"`
+	RuleMsg    string    `json:"rule_msg"`
+	RuleFile   string    `json:"rule_file"`
+	Severity   string    `json:"severity"`
+	SeverityID int       `json:"severity_id"`
+	Phase      string    `json:"phase"`
+	PhaseID    int       `json:"phase_id"`
+	Disruptive bool      `json:"disruptive"`
+	Tags       []string  `json:"tags"`
+	Data       string    `json:"data"`
+	UniqueID   string    `json:"unique_id"`
+	RawLog     []byte    `json:"raw_log,omitempty"`
 }
 
-// EventFilter holds query parameters for filtering events.
-type EventFilter struct {
-	Limit    int
-	Offset   int
-	From     *time.Time
-	To       *time.Time
-	Action   string
-	ClientIP string
-}
-
-// Stats holds aggregated WAF statistics.
+// Stats aggregates statistics for the dashboard.
 type Stats struct {
-	TotalBlocks     int64        `json:"total_blocks"`
-	TotalDetections int64        `json:"total_detections"`
-	TopIPs          []IPCount    `json:"top_ips"`
-	TopRules        []RuleCount  `json:"top_rules"`
-	EventsPerHour   []HourCount  `json:"events_per_hour"`
+	TotalBlocks     int64         `json:"total_blocks"`
+	TotalDetections int64         `json:"total_detections"`
+	TopIPs          []TopEntry    `json:"top_ips"`
+	TopRules        []TopRule     `json:"top_rules"`
+	TopTags         []TopEntry    `json:"top_tags"`
+	TopPhases       []TopEntry    `json:"top_phases"`
+	EventsPerHour   []HourBucket  `json:"events_per_hour"`
 }
 
-// IPCount is a client IP with its event count.
-type IPCount struct {
-	IP    string `json:"ip"`
+type TopEntry struct {
+	Label string `json:"label"`
 	Count int64  `json:"count"`
 }
 
-// RuleCount is a rule ID with its event count.
-type RuleCount struct {
-	RuleID  string `json:"rule_id"`
-	RuleMsg string `json:"rule_msg"`
-	Count   int64  `json:"count"`
+type TopRule struct {
+	RuleID int    `json:"rule_id"`
+	Msg    string `json:"msg"`
+	Count  int64  `json:"count"`
 }
 
-// HourCount is a time bucket with its event count.
-type HourCount struct {
+type HourBucket struct {
 	Hour  time.Time `json:"hour"`
 	Count int64     `json:"count"`
 }

@@ -2,95 +2,114 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/stovecode/coraza-dashboard/backend/internal/db"
-	"github.com/stovecode/coraza-dashboard/backend/internal/models"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog/log"
+
+	"github.com/corazawaf/coraza-dashboard/internal/db"
+	"github.com/corazawaf/coraza-dashboard/internal/models"
+	"github.com/corazawaf/coraza-dashboard/internal/scraper"
 )
 
-// HealthHandler returns a simple health check response.
-func HealthHandler(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+type Handler struct {
+	pool    *pgxpool.Pool
+	scraper *scraper.Scraper
 }
 
-// EventsHandler returns a paginated list of WAF events.
-func EventsHandler(w http.ResponseWriter, r *http.Request) {
+func NewHandler(pool *pgxpool.Pool, sc *scraper.Scraper) *Handler {
+	return &Handler{pool: pool, scraper: sc}
+}
+
+func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
+	if err := h.pool.Ping(r.Context()); err != nil {
+		jsonError(w, "db unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	jsonOK(w, map[string]string{"status": "ok"})
+}
+
+func (h *Handler) Events(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
-	filter := models.EventFilter{
-		Limit:    parseIntParam(q.Get("limit"), 50),
-		Offset:   parseIntParam(q.Get("offset"), 0),
-		Action:   q.Get("action"),
+	limit, _ := strconv.Atoi(q.Get("limit"))
+	if limit == 0 {
+		limit = 50
+	}
+	offset, _ := strconv.Atoi(q.Get("offset"))
+
+	f := db.ListFilter{
+		Limit:    limit,
+		Offset:   offset,
 		ClientIP: q.Get("client_ip"),
 	}
 
-	if from := q.Get("from"); from != "" {
-		if t, err := time.Parse(time.RFC3339, from); err == nil {
-			filter.From = &t
-		} else {
-			writeError(w, http.StatusBadRequest, "invalid 'from' timestamp, use RFC3339")
-			return
+	if v := q.Get("from"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			f.From = t
 		}
 	}
-	if to := q.Get("to"); to != "" {
-		if t, err := time.Parse(time.RFC3339, to); err == nil {
-			filter.To = &t
-		} else {
-			writeError(w, http.StatusBadRequest, "invalid 'to' timestamp, use RFC3339")
-			return
+	if v := q.Get("to"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			f.To = t
 		}
+	}
+	if v := q.Get("disruptive"); v != "" {
+		b := v == "true"
+		f.Disruptive = &b
 	}
 
-	events, total, err := db.ListEvents(r.Context(), filter)
+	result, err := db.ListEvents(r.Context(), h.pool, f)
 	if err != nil {
-		log.Printf("api: list events: %v", err)
-		writeError(w, http.StatusInternalServerError, "database error")
+		log.Error().Err(err).Msg("ListEvents failed")
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"total":  total,
-		"limit":  filter.Limit,
-		"offset": filter.Offset,
-		"events": events,
+	if result.Events == nil {
+		result.Events = []models.WAFEvent{}
+	}
+	jsonOK(w, map[string]interface{}{
+		"total":  result.Total,
+		"events": result.Events,
 	})
 }
 
-// StatsHandler returns aggregated WAF statistics.
-func StatsHandler(w http.ResponseWriter, r *http.Request) {
-	stats, err := db.GetStats(r.Context())
+func (h *Handler) Stats(w http.ResponseWriter, r *http.Request) {
+	stats, err := db.GetStats(r.Context(), h.pool)
 	if err != nil {
-		log.Printf("api: get stats: %v", err)
-		writeError(w, http.StatusInternalServerError, "database error")
+		log.Error().Err(err).Msg("GetStats failed")
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, http.StatusOK, stats)
+	jsonOK(w, stats)
 }
 
-// --- helpers ---
+func (h *Handler) Metrics(w http.ResponseWriter, r *http.Request) {
+	if h.scraper == nil {
+		jsonError(w, "metrics scraper not configured", http.StatusServiceUnavailable)
+		return
+	}
+	latest := h.scraper.Latest()
+	if latest == "" {
+		jsonError(w, "no metrics available yet", http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	_, _ = w.Write([]byte(latest))
+}
 
-func writeJSON(w http.ResponseWriter, status int, v interface{}) {
+func jsonOK(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
+	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		log.Printf("api: encode response: %v", err)
+		log.Error().Err(err).Msg("json encode error")
 	}
 }
 
-func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
-}
-
-func parseIntParam(s string, fallback int) int {
-	if s == "" {
-		return fallback
-	}
-	v, err := strconv.Atoi(s)
-	if err != nil || v < 0 {
-		return fallback
-	}
-	return v
+func jsonError(w http.ResponseWriter, msg string, code int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }

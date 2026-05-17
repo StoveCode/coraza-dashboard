@@ -1,14 +1,32 @@
-import client from './client'
+import { api } from './client'
 
-export interface StatsResponse {
-  total_blocks: number
-  total_detections: number
-  top_ips: Array<{ ip: string; count: number }>
-  top_rules: Array<{ rule_id: string; rule_msg: string; count: number }>
-  events_per_hour: Array<{ hour: string; count: number }>
+export interface TopEntry {
+  label: string
+  count: number
 }
 
-export async function fetchStats(): Promise<StatsResponse> {
-  const { data } = await client.get<StatsResponse>('/api/stats')
-  return data
+export interface TopRule {
+  rule_id: number
+  msg: string
+  count: number
+}
+
+export interface HourBucket {
+  hour: string
+  count: number
+}
+
+export interface Stats {
+  total_blocks: number
+  total_detections: number
+  top_ips: TopEntry[]
+  top_rules: TopRule[]
+  top_tags: TopEntry[]
+  top_phases: TopEntry[]
+  events_per_hour: HourBucket[]
+}
+
+export async function fetchStats(): Promise<Stats> {
+  const resp = await api.get<Stats>('/api/stats')
+  return resp.data
 }

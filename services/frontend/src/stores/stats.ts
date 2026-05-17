@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { fetchStats, type StatsResponse } from '@/api/stats'
+import { fetchStats, type Stats } from '../api/stats'
 
 export const useStatsStore = defineStore('stats', () => {
-  const stats = ref<StatsResponse | null>(null)
+  const stats = ref<Stats | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -12,8 +12,8 @@ export const useStatsStore = defineStore('stats', () => {
     error.value = null
     try {
       stats.value = await fetchStats()
-    } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : 'Failed to fetch stats'
+    } catch (e: any) {
+      error.value = e.message ?? 'Failed to load stats'
     } finally {
       loading.value = false
     }

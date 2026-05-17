@@ -1,6 +1,6 @@
 <template>
   <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
-    <h3 class="text-sm font-semibold text-gray-400 mb-3">Top Rules</h3>
+    <h3 class="text-sm font-semibold text-gray-400 mb-3">Top OWASP CRS Tags</h3>
     <Bar v-if="chartData" :data="chartData" :options="options" />
     <div v-else class="h-48 flex items-center justify-center text-gray-600">No data</div>
   </div>
@@ -10,20 +10,20 @@
 import { computed } from 'vue'
 import { Bar } from 'vue-chartjs'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js'
-import type { TopRule } from '../api/stats'
+import type { TopEntry } from '../api/stats'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 
-const props = defineProps<{ data: TopRule[] | null | undefined }>()
+const props = defineProps<{ data: TopEntry[] | null | undefined }>()
 
 const chartData = computed(() => {
   if (!props.data?.length) return null
   return {
-    labels: props.data.map(r => `${r.rule_id}: ${r.msg.slice(0, 25)}`),
+    labels: props.data.map(e => e.label),
     datasets: [{
       label: 'Hits',
-      data: props.data.map(r => r.count),
-      backgroundColor: '#f97316',
+      data: props.data.map(e => e.count),
+      backgroundColor: '#8b5cf6',
     }]
   }
 })

@@ -2,107 +2,116 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
-	"github.com/joho/godotenv"
-	"github.com/stovecode/coraza-dashboard/backend/internal/api"
-	"github.com/stovecode/coraza-dashboard/backend/internal/collector"
-	"github.com/stovecode/coraza-dashboard/backend/internal/db"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
+	"github.com/corazawaf/coraza-dashboard/internal/api"
+	"github.com/corazawaf/coraza-dashboard/internal/db"
+	"github.com/corazawaf/coraza-dashboard/internal/scraper"
+	"github.com/corazawaf/coraza-dashboard/internal/tailer"
 )
 
 func main() {
-	// Load .env if present (non-fatal)
-	_ = godotenv.Load()
-
-	port := getenv("SERVER_PORT", "8080")
-	allowedOrigins := strings.Split(getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000"), ",")
-
-	// Connect DB with retry
-	ctx := context.Background()
-	if err := connectWithRetry(ctx, 30, 2*time.Second); err != nil {
-		log.Fatalf("database connect: %v", err)
+	// Configure zerolog
+	logLevel := zerolog.InfoLevel
+	if os.Getenv("LOG_LEVEL") == "debug" {
+		logLevel = zerolog.DebugLevel
 	}
-	defer db.Close()
+	zerolog.SetGlobalLevel(logLevel)
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
 
-	if err := db.Migrate(ctx); err != nil {
-		log.Fatalf("database migrate: %v", err)
+	// Connect to DB
+	pool, err := db.Connect(context.Background())
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to connect to database")
+	}
+	defer pool.Close()
+
+	// Run migrations
+	if err := db.Migrate(context.Background(), pool); err != nil {
+		log.Fatal().Err(err).Msg("failed to run migrations")
 	}
 
-	// Router
+	// Start log tailer
+	logFile := os.Getenv("LOG_FILE")
+	if logFile == "" {
+		logFile = "/var/log/coraza/coraza.log"
+	}
+	t := tailer.New(logFile, pool)
+	go t.Run(context.Background())
+
+	// Start metrics scraper (optional)
+	metricsURL := os.Getenv("CORAZA_METRICS_URL")
+	var sc *scraper.Scraper
+	if metricsURL != "" {
+		sc = scraper.New(metricsURL)
+		go sc.Run(context.Background())
+	}
+
+	// Setup router
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   allowedOrigins,
-		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: false,
-		MaxAge:           300,
-	}))
 
-	r.Get("/api/health", api.HealthHandler)
-	r.Get("/api/events", api.EventsHandler)
-	r.Get("/api/stats", api.StatsHandler)
-	r.Post("/api/log", collector.Handler)
+	// CORS
+	corsOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if corsOrigins == "" {
+		corsOrigins = "http://localhost:3000"
+	}
+	r.Use(corsMiddleware(corsOrigins))
 
-	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%s", port),
-		Handler:      r,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+	h := api.NewHandler(pool, sc)
+	r.Get("/api/health", h.Health)
+	r.Get("/api/events", h.Events)
+	r.Get("/api/stats", h.Stats)
+	r.Get("/api/metrics", h.Metrics)
+
+	port := os.Getenv("SERVER_PORT")
+	if port == "" {
+		port = "8080"
 	}
 
-	// Graceful shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: r,
+	}
 
 	go func() {
-		log.Printf("backend listening on :%s", port)
+		log.Info().Str("port", port).Msg("starting HTTP server")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %v", err)
+			log.Fatal().Err(err).Msg("server error")
 		}
 	}()
 
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("shutting down...")
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("shutdown error: %v", err)
-	}
-	log.Println("stopped")
+	_ = srv.Shutdown(ctx)
+	log.Info().Msg("server stopped")
 }
 
-func connectWithRetry(ctx context.Context, attempts int, delay time.Duration) error {
-	for i := 0; i < attempts; i++ {
-		if err := db.Connect(ctx); err == nil {
-			return nil
-		} else {
-			log.Printf("db connect attempt %d/%d failed: %v — retrying in %s", i+1, attempts, err, delay)
-		}
-		time.Sleep(delay)
+func corsMiddleware(allowedOrigins string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", allowedOrigins)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
 	}
-	return fmt.Errorf("could not connect to database after %d attempts", attempts)
-}
-
-func getenv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }

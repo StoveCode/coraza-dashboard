@@ -1,39 +1,50 @@
-import client from './client'
+import { api } from './client'
 
 export interface WAFEvent {
   id: string
   timestamp: string
   client_ip: string
-  method: string
+  server: string
   uri: string
-  rule_id: string
+  rule_id: number
   rule_msg: string
+  rule_file: string
   severity: string
-  action: 'block' | 'detect'
-  raw_log: Record<string, unknown>
+  severity_id: number
+  phase: string
+  phase_id: number
+  disruptive: boolean
+  tags: string[]
+  data: string
+  unique_id: string
 }
 
-export interface EventsResponse {
-  total: number
-  limit: number
-  offset: number
-  events: WAFEvent[]
-}
-
-export interface EventsParams {
+export interface EventsFilter {
   limit?: number
   offset?: number
   from?: string
   to?: string
-  action?: 'block' | 'detect' | ''
+  disruptive?: boolean | null
   client_ip?: string
 }
 
-export async function fetchEvents(params: EventsParams = {}): Promise<EventsResponse> {
-  const { data } = await client.get<EventsResponse>('/api/events', { params })
-  return data
+export interface EventsResponse {
+  total: number
+  events: WAFEvent[]
 }
 
-export async function checkHealth(): Promise<void> {
-  await client.get('/api/health')
+export async function fetchEvents(filter: EventsFilter = {}): Promise<EventsResponse> {
+  const params: Record<string, string | number> = {
+    limit: filter.limit ?? 50,
+    offset: filter.offset ?? 0,
+  }
+  if (filter.from) params.from = filter.from
+  if (filter.to) params.to = filter.to
+  if (filter.disruptive !== null && filter.disruptive !== undefined) {
+    params.disruptive = String(filter.disruptive)
+  }
+  if (filter.client_ip) params.client_ip = filter.client_ip
+
+  const resp = await api.get<EventsResponse>('/api/events', { params })
+  return resp.data
 }

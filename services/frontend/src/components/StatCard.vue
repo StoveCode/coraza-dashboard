@@ -1,35 +1,16 @@
 <template>
-  <div class="card p-4">
-    <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">{{ label }}</div>
-    <div class="text-3xl font-bold" :class="valueColor">{{ displayValue }}</div>
-    <div v-if="sub" class="text-xs text-gray-500 mt-1">{{ sub }}</div>
+  <div class="p-2 bg-gray-900 rounded-xl border border-gray-800">
+    <p class="text-xs text-gray-500 uppercase tracking-wider">{{ label }}</p>
+    <p class="text-2xl font-bold" :class="valueClass">{{ value }}</p>
+    <p v-if="sub" class="text-xs text-gray-500 mt-1">{{ sub }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-
-const props = defineProps<{
+defineProps<{
   label: string
-  value: number | string
+  value: string | number
   sub?: string
-  color?: 'red' | 'yellow' | 'green' | 'blue' | 'default'
+  valueClass?: string
 }>()
-
-const valueColor = computed(() => {
-  switch (props.color) {
-    case 'red': return 'text-red-400'
-    case 'yellow': return 'text-yellow-400'
-    case 'green': return 'text-green-400'
-    case 'blue': return 'text-blue-400'
-    default: return 'text-white'
-  }
-})
-
-const displayValue = computed(() => {
-  if (typeof props.value === 'number') {
-    return props.value.toLocaleString()
-  }
-  return props.value
-})
 </script>

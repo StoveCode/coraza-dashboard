@@ -1,67 +1,40 @@
 <template>
-  <div class="card p-4">
-    <h3 class="text-sm font-semibold text-gray-300 mb-3">{{ title }}</h3>
-    <Bar :data="chartData" :options="chartOptions" />
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+    <h3 class="text-sm font-semibold text-gray-400 mb-3">Top Client IPs</h3>
+    <Bar v-if="chartData" :data="chartData" :options="options" />
+    <div v-else class="h-48 flex items-center justify-center text-gray-600">No data</div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Bar } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js'
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js'
+import type { TopEntry } from '../api/stats'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 
-const props = defineProps<{
-  title: string
-  data: Array<{ ip: string; count: number }>
-}>()
+const props = defineProps<{ data: TopEntry[] | null | undefined }>()
 
-const chartData = computed(() => ({
-  labels: props.data.map(d => d.ip),
-  datasets: [
-    {
+const chartData = computed(() => {
+  if (!props.data?.length) return null
+  return {
+    labels: props.data.map(e => e.label),
+    datasets: [{
       label: 'Requests',
-      data: props.data.map(d => d.count),
-      backgroundColor: 'rgba(239, 68, 68, 0.7)',
-      borderColor: '#ef4444',
-      borderWidth: 1,
-      borderRadius: 3,
-    },
-  ],
-}))
+      data: props.data.map(e => e.count),
+      backgroundColor: '#3b82f6',
+    }]
+  }
+})
 
-const chartOptions = {
+const options = {
   responsive: true,
-  maintainAspectRatio: true,
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      backgroundColor: '#1c1c28',
-      borderColor: '#3a3a50',
-      borderWidth: 1,
-      titleColor: '#c0c0d8',
-      bodyColor: '#a0a0c0',
-    },
-  },
+  indexAxis: 'y' as const,
+  plugins: { legend: { display: false } },
   scales: {
-    x: {
-      grid: { color: '#22222f' },
-      ticks: { color: '#5a5a78' },
-    },
-    y: {
-      grid: { color: '#22222f' },
-      ticks: { color: '#5a5a78', precision: 0 },
-      beginAtZero: true,
-    },
-  },
+    x: { ticks: { color: '#6b7280' }, grid: { color: '#1f2937' }, beginAtZero: true },
+    y: { ticks: { color: '#9ca3af', font: { family: 'monospace' } }, grid: { display: false } },
+  }
 }
 </script>
