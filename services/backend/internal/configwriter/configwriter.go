@@ -12,7 +12,7 @@ import (
 
 const yamlTemplate = `bind: 0.0.0.0:9000
 log_level: info
-log_file: /var/log/coraza/coraza.log
+log_file: /dev/stdout
 log_format: json
 
 default_application: sample_app
@@ -41,7 +41,7 @@ applications:
     response_check: false
     transaction_ttl_ms: 60000
     log_level: info
-    log_file: /var/log/coraza/coraza.log
+    log_file: /dev/stdout
     log_format: json
 `
 

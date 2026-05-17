@@ -62,13 +62,17 @@ func main() {
 		}
 	}
 
-	// Start log tailer
-	logFile := os.Getenv("LOG_FILE")
-	if logFile == "" {
-		logFile = "/var/log/coraza/coraza.log"
+	// Start log tailer (disabled when LOG_INGEST_MODE=true, i.e. Fluent Bit is used)
+	if os.Getenv("LOG_INGEST_MODE") != "true" {
+		logFile := os.Getenv("LOG_FILE")
+		if logFile == "" {
+			logFile = "/var/log/coraza/coraza.log"
+		}
+		t := tailer.New(logFile, pool)
+		go t.Run(context.Background())
+	} else {
+		log.Info().Msg("LOG_INGEST_MODE=true: log tailer disabled, using Fluent Bit ingest endpoint")
 	}
-	t := tailer.New(logFile, pool)
-	go t.Run(context.Background())
 
 	// Start metrics scraper (optional)
 	metricsURL := os.Getenv("CORAZA_METRICS_URL")
@@ -95,6 +99,7 @@ func main() {
 	r.Get("/api/events", h.Events)
 	r.Get("/api/stats", h.Stats)
 	r.Get("/api/metrics", h.Metrics)
+	r.Post("/api/ingest", h.Ingest)
 	r.Get("/api/rules/config", h.GetRulesConfig)
 	r.Put("/api/rules/config", h.PutRulesConfig)
 	r.Get("/api/rules/categories", h.GetRuleCategories)

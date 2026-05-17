@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/corazawaf/coraza-dashboard/internal/configwriter"
 	"github.com/corazawaf/coraza-dashboard/internal/db"
 	"github.com/corazawaf/coraza-dashboard/internal/models"
+	"github.com/corazawaf/coraza-dashboard/internal/parser"
 	"github.com/corazawaf/coraza-dashboard/internal/scraper"
 )
 
@@ -182,4 +184,69 @@ func (h *Handler) PutRulesConfig(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetRuleCategories(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, ruleCategories)
+}
+
+// Ingest receives log lines from Fluent Bit (POST /api/ingest)
+func (h *Handler) Ingest(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(io.LimitReader(r.Body, 64*1024))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if len(body) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Fluent Bit HTTP output sends a JSON array of records:
+	// [{"container_id":"...","container_name":"...","source":"stdout","log":"<raw coraza json>"},...]
+	var records []map[string]interface{}
+	if err := json.Unmarshal(body, &records); err == nil {
+		// Array of records from Fluent Bit
+		for _, rec := range records {
+			if logStr, ok := rec["log"].(string); ok && logStr != "" {
+				event := parser.ParseLine([]byte(logStr))
+				if event != nil {
+					if err := db.InsertEvent(r.Context(), h.pool, event); err != nil {
+						log.Error().Err(err).Msg("ingest: failed to insert WAF event")
+					} else {
+						log.Info().Str("unique_id", event.UniqueID).Int("rule_id", event.RuleID).Msg("ingest: inserted WAF event")
+					}
+				}
+			}
+		}
+	} else {
+		// Single object fallback
+		var wrapper struct {
+			Log string `json:"log"`
+		}
+		if err := json.Unmarshal(body, &wrapper); err == nil && wrapper.Log != "" {
+			event := parser.ParseLine([]byte(wrapper.Log))
+			if event != nil {
+				if err := db.InsertEvent(r.Context(), h.pool, event); err != nil {
+					log.Error().Err(err).Msg("ingest: failed to insert WAF event")
+				} else {
+					log.Info().Str("unique_id", event.UniqueID).Int("rule_id", event.RuleID).Msg("ingest: inserted WAF event")
+				}
+			}
+		} else {
+			// Last fallback: try to parse body directly as a log line
+			event := parser.ParseLine(body)
+			if event != nil {
+				if err := db.InsertEvent(r.Context(), h.pool, event); err != nil {
+					log.Error().Err(err).Msg("ingest: failed to insert WAF event")
+				} else {
+					log.Info().Str("unique_id", event.UniqueID).Int("rule_id", event.RuleID).Msg("ingest: inserted WAF event")
+				}
+			}
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
