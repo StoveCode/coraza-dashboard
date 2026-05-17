@@ -47,7 +47,7 @@ func main() {
 	if corazaConfigPath != "" {
 		if _, err := os.Stat(corazaConfigPath); os.IsNotExist(err) {
 			defaultCfg := &models.RulesConfig{
-				EngineMode:        "On",
+				EngineMode:        "DetectionOnly",
 				ParanoiaLevel:     1,
 				InboundThreshold:  5,
 				OutboundThreshold: 4,

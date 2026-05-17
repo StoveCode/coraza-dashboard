@@ -1,12 +1,16 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/client"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
@@ -178,6 +182,32 @@ func (h *Handler) PutRulesConfig(w http.ResponseWriter, r *http.Request) {
 	if err := configwriter.WriteConfig(&cfg); err != nil {
 		log.Warn().Err(err).Msg("configwriter.WriteConfig failed (CORAZA_CONFIG_PATH not set?)")
 	}
+
+	// Docker container restart
+	go func() {
+		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+		if err != nil {
+			log.Warn().Err(err).Msg("could not create docker client for coraza-spoa restart")
+			return
+		}
+		defer cli.Close()
+
+		ctx := context.Background()
+		containers, err := cli.ContainerList(ctx, container.ListOptions{
+			Filters: filters.NewArgs(filters.Arg("name", "coraza-spoa")),
+		})
+		if err != nil || len(containers) == 0 {
+			log.Warn().Err(err).Msg("coraza-spoa container not found for restart")
+			return
+		}
+
+		timeout := 5 // seconds
+		if err := cli.ContainerRestart(ctx, containers[0].ID, container.StopOptions{Timeout: &timeout}); err != nil {
+			log.Warn().Err(err).Msg("failed to restart coraza-spoa")
+			return
+		}
+		log.Info().Msg("coraza-spoa restarted after config update")
+	}()
 
 	jsonOK(w, map[string]string{"status": "ok", "message": "Config updated, coraza-spoa reloading..."})
 }
