@@ -47,6 +47,23 @@ type TopRule struct {
 	Count  int64  `json:"count"`
 }
 
+// RulesConfig represents the WAF rules configuration.
+type RulesConfig struct {
+	EngineMode        string   `json:"engine_mode"`
+	ParanoiaLevel     int      `json:"paranoia_level"`
+	InboundThreshold  int      `json:"inbound_threshold"`
+	OutboundThreshold int      `json:"outbound_threshold"`
+	DisabledRuleIds   []string `json:"disabled_rule_ids"`
+	DisabledTags      []string `json:"disabled_tags"`
+}
+
+// RuleCategory represents a CRS rule category.
+type RuleCategory struct {
+	Tag         string `json:"tag"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+}
+
 type HourBucket struct {
 	Hour  time.Time `json:"hour"`
 	Count int64     `json:"count"`

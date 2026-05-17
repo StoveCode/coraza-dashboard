@@ -198,3 +198,35 @@ func strconv(n int) string {
 	}
 	return string(b)
 }
+
+// GetRulesConfig fetches the current rules configuration (row id=1).
+func GetRulesConfig(ctx context.Context, pool *pgxpool.Pool) (*models.RulesConfig, error) {
+	cfg := &models.RulesConfig{}
+	err := pool.QueryRow(ctx, `
+		SELECT engine_mode, paranoia_level, inbound_threshold, outbound_threshold, disabled_rule_ids, disabled_tags
+		FROM rules_config WHERE id = 1
+	`).Scan(&cfg.EngineMode, &cfg.ParanoiaLevel, &cfg.InboundThreshold, &cfg.OutboundThreshold,
+		&cfg.DisabledRuleIds, &cfg.DisabledTags)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.DisabledRuleIds == nil {
+		cfg.DisabledRuleIds = []string{}
+	}
+	if cfg.DisabledTags == nil {
+		cfg.DisabledTags = []string{}
+	}
+	return cfg, nil
+}
+
+// SaveRulesConfig saves the rules configuration (upsert on id=1).
+func SaveRulesConfig(ctx context.Context, pool *pgxpool.Pool, cfg *models.RulesConfig) error {
+	_, err := pool.Exec(ctx, `
+		UPDATE rules_config
+		SET engine_mode=$1, paranoia_level=$2, inbound_threshold=$3, outbound_threshold=$4,
+		    disabled_rule_ids=$5, disabled_tags=$6, updated_at=NOW()
+		WHERE id=1
+	`, cfg.EngineMode, cfg.ParanoiaLevel, cfg.InboundThreshold, cfg.OutboundThreshold,
+		cfg.DisabledRuleIds, cfg.DisabledTags)
+	return err
+}

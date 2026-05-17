@@ -17,9 +17,9 @@ services:
   coraza-spoa:
     image: coraza-spoa:local
     entrypoint: ["/coraza-spoa"]
-    command: ["--config", "/etc/coraza-spoa/coraza-spoa.yaml"]
+    command: ["--config", "/etc/coraza-spoa/coraza-spoa.yaml", "--autoreload"]
     volumes:
-      - ./services/coraza/coraza-spoa.yaml:/etc/coraza-spoa/coraza-spoa.yaml:ro
+      - coraza_config:/etc/coraza-spoa    # shared config volume
       - coraza_logs:/var/log/coraza    # shared log volume!
     ports:
       - "${CORAZA_SPOE_PORT:-9000}:9000"
@@ -54,9 +54,11 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       LOG_FILE: /var/log/coraza/coraza.log
       CORAZA_METRICS_URL: ${CORAZA_METRICS_URL:-}
+      CORAZA_CONFIG_PATH: /etc/coraza-spoa/coraza-spoa.yaml
       LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - coraza_logs:/var/log/coraza    # same shared log volume!
+      - coraza_config:/etc/coraza-spoa    # backend can write config
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:
@@ -73,3 +75,4 @@ services:
 volumes:
   postgres_data:
   coraza_logs:
+  coraza_config:

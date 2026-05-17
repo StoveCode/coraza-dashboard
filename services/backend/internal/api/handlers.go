@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
+	"github.com/corazawaf/coraza-dashboard/internal/configwriter"
 	"github.com/corazawaf/coraza-dashboard/internal/db"
 	"github.com/corazawaf/coraza-dashboard/internal/models"
 	"github.com/corazawaf/coraza-dashboard/internal/scraper"
@@ -112,4 +113,73 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+var ruleCategories = []models.RuleCategory{
+	{Tag: "attack-sqli", Label: "SQL Injection", Description: "SQLi attacks via libinjection and pattern matching"},
+	{Tag: "attack-xss", Label: "Cross-Site Scripting", Description: "XSS attacks via libinjection and pattern matching"},
+	{Tag: "attack-rce", Label: "Remote Code Execution", Description: "OS command injection and RCE attempts"},
+	{Tag: "attack-lfi", Label: "Local File Inclusion", Description: "Path traversal and LFI attempts"},
+	{Tag: "attack-rfi", Label: "Remote File Inclusion", Description: "RFI attempts"},
+	{Tag: "attack-ssrf", Label: "SSRF", Description: "Server-Side Request Forgery"},
+	{Tag: "attack-injection", Label: "Generic Injection", Description: "Generic injection attacks"},
+	{Tag: "attack-scanner", Label: "Scanner Detection", Description: "Web application scanner user-agents"},
+	{Tag: "attack-protocol", Label: "Protocol Attacks", Description: "HTTP protocol violations"},
+	{Tag: "attack-reputation", Label: "IP Reputation", Description: "Known malicious IP addresses"},
+}
+
+func (h *Handler) GetRulesConfig(w http.ResponseWriter, r *http.Request) {
+	cfg, err := db.GetRulesConfig(r.Context(), h.pool)
+	if err != nil {
+		log.Error().Err(err).Msg("GetRulesConfig failed")
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, cfg)
+}
+
+func (h *Handler) PutRulesConfig(w http.ResponseWriter, r *http.Request) {
+	var cfg models.RulesConfig
+	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		jsonError(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Validate
+	switch cfg.EngineMode {
+	case "On", "DetectionOnly", "Off":
+	default:
+		jsonError(w, "engine_mode must be On, DetectionOnly, or Off", http.StatusBadRequest)
+		return
+	}
+	if cfg.ParanoiaLevel < 1 || cfg.ParanoiaLevel > 4 {
+		jsonError(w, "paranoia_level must be 1-4", http.StatusBadRequest)
+		return
+	}
+	if cfg.InboundThreshold <= 0 || cfg.OutboundThreshold <= 0 {
+		jsonError(w, "thresholds must be > 0", http.StatusBadRequest)
+		return
+	}
+	if cfg.DisabledRuleIds == nil {
+		cfg.DisabledRuleIds = []string{}
+	}
+	if cfg.DisabledTags == nil {
+		cfg.DisabledTags = []string{}
+	}
+
+	if err := db.SaveRulesConfig(r.Context(), h.pool, &cfg); err != nil {
+		log.Error().Err(err).Msg("SaveRulesConfig failed")
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	if err := configwriter.WriteConfig(&cfg); err != nil {
+		log.Warn().Err(err).Msg("configwriter.WriteConfig failed (CORAZA_CONFIG_PATH not set?)")
+	}
+
+	jsonOK(w, map[string]string{"status": "ok", "message": "Config updated, coraza-spoa reloading..."})
+}
+
+func (h *Handler) GetRuleCategories(w http.ResponseWriter, r *http.Request) {
+	jsonOK(w, ruleCategories)
 }

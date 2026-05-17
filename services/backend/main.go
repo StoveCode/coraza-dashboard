@@ -14,7 +14,9 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/corazawaf/coraza-dashboard/internal/api"
+	"github.com/corazawaf/coraza-dashboard/internal/configwriter"
 	"github.com/corazawaf/coraza-dashboard/internal/db"
+	"github.com/corazawaf/coraza-dashboard/internal/models"
 	"github.com/corazawaf/coraza-dashboard/internal/scraper"
 	"github.com/corazawaf/coraza-dashboard/internal/tailer"
 )
@@ -38,6 +40,26 @@ func main() {
 	// Run migrations
 	if err := db.Migrate(context.Background(), pool); err != nil {
 		log.Fatal().Err(err).Msg("failed to run migrations")
+	}
+
+	// Initialize coraza config file if not present
+	corazaConfigPath := os.Getenv("CORAZA_CONFIG_PATH")
+	if corazaConfigPath != "" {
+		if _, err := os.Stat(corazaConfigPath); os.IsNotExist(err) {
+			defaultCfg := &models.RulesConfig{
+				EngineMode:        "On",
+				ParanoiaLevel:     1,
+				InboundThreshold:  5,
+				OutboundThreshold: 4,
+				DisabledRuleIds:   []string{},
+				DisabledTags:      []string{},
+			}
+			if werr := configwriter.WriteConfig(defaultCfg); werr != nil {
+				log.Warn().Err(werr).Msg("could not write default coraza config")
+			} else {
+				log.Info().Str("path", corazaConfigPath).Msg("wrote default coraza config")
+			}
+		}
 	}
 
 	// Start log tailer
@@ -73,6 +95,9 @@ func main() {
 	r.Get("/api/events", h.Events)
 	r.Get("/api/stats", h.Stats)
 	r.Get("/api/metrics", h.Metrics)
+	r.Get("/api/rules/config", h.GetRulesConfig)
+	r.Put("/api/rules/config", h.PutRulesConfig)
+	r.Get("/api/rules/categories", h.GetRuleCategories)
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
@@ -105,7 +130,7 @@ func corsMiddleware(allowedOrigins string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Origin", allowedOrigins)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)

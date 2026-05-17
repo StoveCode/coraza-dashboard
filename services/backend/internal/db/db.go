@@ -31,6 +31,18 @@ func getEnv(key, fallback string) string {
 }
 
 const schema = `
+CREATE TABLE IF NOT EXISTS rules_config (
+    id                 SERIAL PRIMARY KEY,
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    engine_mode        TEXT NOT NULL DEFAULT 'On',
+    paranoia_level     INT NOT NULL DEFAULT 1,
+    inbound_threshold  INT NOT NULL DEFAULT 5,
+    outbound_threshold INT NOT NULL DEFAULT 4,
+    disabled_rule_ids  TEXT[] NOT NULL DEFAULT '{}',
+    disabled_tags      TEXT[] NOT NULL DEFAULT '{}'
+);
+INSERT INTO rules_config (id) VALUES (1) ON CONFLICT DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS waf_events (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     timestamp   TIMESTAMPTZ NOT NULL,
