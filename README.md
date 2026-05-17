@@ -12,14 +12,19 @@ Zeigt Block-Events, Traffic-Statistiken und WAF-Aktivitäten in einem Dark-Theme
    ▼
 [HAProxy :80]  ──── SPOE ────▶  [coraza-spoa :9000]
                                        │
-                              JSON log lines (zerolog)
+                              JSON log lines (stdout)
                                        │
-                              /var/log/coraza/coraza.log
-                              (shared Docker Volume)
+                               Docker fluentd log driver
+                                       │
+                                       ▼
+                              [Fluent Bit :24224]
+                              Filtert & forwardet WAF Events
+                                       │
+                               POST /api/ingest
                                        │
                                        ▼
                               [Backend :8080] (Go)
-                              Log-Tailer + REST API
+                              REST API + Ingest Handler
                                        │
                               [PostgreSQL :5432]
                                        │
@@ -29,15 +34,16 @@ Zeigt Block-Events, Traffic-Statistiken und WAF-Aktivitäten in einem Dark-Theme
 
 ## Services
 
-| Service       | Port  | Beschreibung                                  |
-|---------------|-------|-----------------------------------------------|
-| `haproxy`     | 80    | Reverse Proxy mit Coraza SPOE-Filter          |
-| `haproxy`     | 8404  | HAProxy Stats-Seite (admin/changeme)          |
-| `coraza-spoa` | 9000  | OWASP Coraza WAF Agent (SPOE)                 |
-| `backend`     | 8080  | Go REST API + Log-Tailer                      |
-| `frontend`    | 3000  | Vue 3 Dashboard                               |
-| `httpbin`     | 8081  | Echo-Backend (für Tests)                      |
-| `postgres`    | 5432  | PostgreSQL Datenbank                          |
+| Service       | Port  | Beschreibung                                       |
+|---------------|-------|----------------------------------------------------|
+| `haproxy`     | 80    | Reverse Proxy mit Coraza SPOE-Filter               |
+| `haproxy`     | 8404  | HAProxy Stats-Seite (admin/changeme)               |
+| `coraza-spoa` | 9000  | OWASP Coraza WAF Agent (SPOE)                      |
+| `fluentbit`   | 24224 | Log-Forwarder: empfängt coraza-spoa Logs, pushed an Backend |
+| `backend`     | 8080  | Go REST API + Ingest Handler                       |
+| `frontend`    | 3000  | Vue 3 Dashboard                                    |
+| `httpbin`     | 8081  | Echo-Backend (für Tests)                           |
+| `postgres`    | 5432  | PostgreSQL Datenbank                               |
 
 ## Quick Start
 
@@ -46,20 +52,26 @@ Zeigt Block-Events, Traffic-Statistiken und WAF-Aktivitäten in einem Dark-Theme
 git clone https://github.com/StoveCode/coraza-dashboard.git
 cd coraza-dashboard
 
-# 2. Env-Datei anlegen
-cp .env.example .env
-# Optional: Passwörter in .env anpassen
+# 2. Install-Script ausführen (prüft/installiert alle Dependencies, baut coraza-spoa)
+sudo bash scripts/install.sh
+```
 
-# 3. coraza-spoa lokal bauen (kein öffentliches Image verfügbar)
+Das Install-Script erledigt automatisch:
+- Docker + Docker Compose installieren (apt / dnf / pacman)
+- `coraza-spoa:local` Image bauen (kein öffentliches Image verfügbar)
+- `.env` aus `.env.example` anlegen
+- Stack starten + Health-Check
+
+### Manuell starten
+
+```bash
+# coraza-spoa Image bauen (einmalig)
 git clone https://github.com/corazawaf/coraza-spoa.git /tmp/coraza-spoa-source
 docker build -f /tmp/coraza-spoa-source/ftw/Dockerfile.coraza_spoa \
   -t coraza-spoa:local /tmp/coraza-spoa-source
 
-# 4. Starten
+cp .env.example .env
 docker compose up -d --build
-
-# 5. Dashboard öffnen
-open http://localhost:3000
 ```
 
 ## URLs
@@ -77,8 +89,8 @@ open http://localhost:3000
 Test-Script das zufälligen legitimen und bösartigen Traffic generiert:
 
 ```bash
-# Requests mit 50% Angriffen
-python3 scripts/traffic-gen.py --rate 1 --ratio 0.5
+# 1 Request alle 10 Sekunden, 100% Angriffe
+python3 scripts/traffic-gen.py --rate 0.1 --ratio 1.0
 
 # Optionen
 python3 scripts/traffic-gen.py --help
@@ -89,14 +101,44 @@ python3 scripts/traffic-gen.py --help
 
 Angriffsvektoren: SQLi, XSS, LFI, Path Traversal, RCE, SSRF, Scanner-UAs, Recon
 
+## Dashboard Features
+
+### Charts (kompakt + expandierbar)
+Alle Charts sind standardmäßig kompakt dargestellt. Per **⤢ Expand** Button öffnet sich ein Modal mit voller Größe.
+
+| Chart               | Beschreibung                          |
+|---------------------|---------------------------------------|
+| Events / Hour       | Timeline der letzten 24h              |
+| Top Client IPs      | Meist-angreifende IPs                 |
+| Top Rules           | Häufigste ausgelöste WAF-Rules        |
+| Top Tags            | CRS-Angriffskategorien (XSS, SQLi...) |
+| Phase Distribution  | Wo in der Request-Phase geblockt wird |
+
+### Rules Management (`/rules`)
+Live-Konfiguration der WAF ohne Restart:
+
+| Feature              | Beschreibung                                               |
+|----------------------|------------------------------------------------------------|
+| **Engine Mode**      | `On` (blockieren) / `Detection Only` (nur loggen) / `Off` |
+| **Paranoia Level**   | Level 1–4 — höher = mehr Rules, mehr False Positives       |
+| **Anomaly Thresholds** | Inbound + Outbound Score-Schwellwert                     |
+| **CRS-Kategorien**   | SQLi, XSS, RCE, LFI, SSRF, Scanner etc. per Toggle        |
+| **Einzelne Rules**   | Beliebige Rule-IDs deaktivieren                            |
+
+Änderungen → **Save Changes** → Backend schreibt neues `coraza-spoa.yaml` → `docker compose restart coraza-spoa`
+
 ## API-Referenz (Backend)
 
-| Method | Pfad            | Beschreibung                                        |
-|--------|-----------------|-----------------------------------------------------|
-| GET    | /api/health     | Health Check                                        |
-| GET    | /api/events     | WAF-Events (paginated, filterbar)                   |
-| GET    | /api/stats      | Aggregierte Statistiken                             |
-| GET    | /api/metrics    | Prometheus-Metriken von coraza-spoa (wenn aktiv)    |
+| Method | Pfad                  | Beschreibung                                     |
+|--------|-----------------------|--------------------------------------------------|
+| GET    | /api/health           | Health Check                                     |
+| GET    | /api/events           | WAF-Events (paginated, filterbar)                |
+| GET    | /api/stats            | Aggregierte Statistiken                          |
+| GET    | /api/metrics          | Prometheus-Metriken (wenn CORAZA_METRICS_URL gesetzt) |
+| POST   | /api/ingest           | Log-Ingest Endpoint für Fluent Bit               |
+| GET    | /api/rules/config     | Aktuelle Rules-Konfiguration                     |
+| PUT    | /api/rules/config     | Konfiguration speichern                          |
+| GET    | /api/rules/categories | Liste der CRS-Kategorien                         |
 
 ### GET /api/events Parameter
 
@@ -142,19 +184,16 @@ FRONTEND_PORT=3000
 CORS_ALLOWED_ORIGINS=http://localhost:3000
 LOG_LEVEL=info
 
+# Log-Ingest via Fluent Bit (kein file tailer)
+LOG_INGEST_MODE=true
+
 # Optional: Prometheus-Scraping von coraza-spoa
 # CORAZA_METRICS_URL=http://coraza-spoa:9090/metrics
 ```
 
-## OWASP CRS v4
+## Log-Pipeline
 
-coraza-spoa lädt automatisch das komplette **OWASP Core Rule Set v4** (`@owasp_crs/*.conf`).
-Konfiguration in `services/coraza/coraza-spoa.yaml`.
-
-## Log-Format
-
-coraza-spoa schreibt **zerolog JSON Lines** in das shared Volume `/var/log/coraza/coraza.log`.
-Der Backend-Tailer verarbeitet nur Zeilen mit einem `match`-Feld:
+coraza-spoa schreibt **zerolog JSON Lines** auf **stdout**. Fluent Bit empfängt die Logs via Docker `fluentd` log driver, filtert auf WAF-Events (Zeilen mit `"match"` Feld) und pushed sie per HTTP an `/api/ingest`.
 
 ```json
 {
@@ -164,7 +203,7 @@ Der Backend-Tailer verarbeitet nur Zeilen mit einem `match`-Feld:
     "rule_id": 941100,
     "msg": "XSS Attack Detected via libinjection",
     "severity": "CRITICAL",
-    "disruptive": true,
+    "disruptive": false,
     "uri": "/search?q=<script>alert(1)</script>",
     "phase": "request-body",
     "tags": ["attack-xss", "OWASP_CRS"]
@@ -173,94 +212,35 @@ Der Backend-Tailer verarbeitet nur Zeilen mit einem `match`-Feld:
 }
 ```
 
-`disruptive: true` = Block, `disruptive: false` = Detection
+`disruptive: true` = Block, `disruptive: false` = Detection (SecRuleEngine DetectionOnly)
 
-## Rules Management UI
+## OWASP CRS v4
 
-Die **Rules**-Seite im Dashboard (`/rules`) erlaubt es, die WAF-Konfiguration live anzupassen — ohne Rebuild oder Restart.
+coraza-spoa lädt automatisch das **OWASP Core Rule Set v4**. Konfiguration in `services/coraza/coraza-spoa.yaml`.
 
-### Features
-
-| Feature                  | Beschreibung                                                  |
-|--------------------------|---------------------------------------------------------------|
-| **Engine Mode**          | `On` (blockieren) / `Detection Only` (nur loggen) / `Off`    |
-| **Paranoia Level**       | Level 1–4 — höher = mehr Rules aktiv, mehr False Positives   |
-| **Anomaly Thresholds**   | Inbound + Outbound Score-Schwellwert separat einstellbar      |
-| **CRS-Kategorien**       | SQLi, XSS, RCE, LFI, SSRF, Scanner etc. per Toggle an/aus   |
-| **Einzelne Rule-IDs**    | Beliebige Rule-IDs per Eingabefeld deaktivieren              |
-
-### Wie es funktioniert
-
-1. Änderungen vornehmen → **Save Changes** klicken
-2. Backend schreibt neues `coraza-spoa.yaml` in ein shared Docker Volume
-3. coraza-spoa erkennt die Änderung via `--autoreload` (fsnotify) und lädt automatisch neu
-4. **Kein Restart, kein Rebuild nötig**
-
-```
-[Frontend] → PUT /api/rules/config → [Backend]
-                                          │
-                               writes coraza-spoa.yaml
-                                          │
-                               shared Docker Volume
-                                          │
-                               [coraza-spoa] ← fsnotify reload
-```
-
-### API Endpoints (Rules)
-
-| Method | Pfad                   | Beschreibung                          |
-|--------|------------------------|---------------------------------------|
-| GET    | /api/rules/config      | Aktuelle Rules-Konfiguration lesen    |
-| PUT    | /api/rules/config      | Konfiguration speichern + Reload      |
-| GET    | /api/rules/categories  | Liste der CRS-Kategorien              |
-
----
-
-## OWASP CRS Ruleset anpassen
-
-Alle Änderungen in `services/coraza/coraza-spoa.yaml` unter `directives:`.
-Nach jeder Änderung: `docker compose restart coraza-spoa` — kein Rebuild nötig.
-
-### Paranoia Level erhöhen
-
-Das CRS hat 4 Paranoia-Level (PL1 = Standard, PL4 = sehr streng).
-Höheres Level = mehr Rules aktiv = mehr False Positives möglich.
+### Paranoia Level
 
 ```yaml
 directives: |
   Include @coraza.conf-recommended
   Include @crs-setup.conf.example
 
-  # Paranoia Level 2 aktivieren (Standard ist 1)
-  SecAction \
-    "id:900000,\
-    phase:1,\
-    nolog,\
-    pass,\
-    t:none,\
-    setvar:tx.blocking_paranoia_level=2"
+  # PL2 aktivieren (Standard: 1)
+  SecAction "id:900000,phase:1,nolog,pass,t:none,setvar:tx.blocking_paranoia_level=2"
 
   Include @owasp_crs/*.conf
   SecRuleEngine On
 ```
 
-### Anomaly Score Threshold anpassen
-
-CRS arbeitet mit Anomaly Scoring — erst wenn der Score einen Schwellwert überschreitet, wird geblockt.
-Default: Inbound = 5, Outbound = 4.
+### Anomaly Score Threshold
 
 ```yaml
 directives: |
   Include @coraza.conf-recommended
   Include @crs-setup.conf.example
 
-  # Threshold erhöhen = weniger Blocks (toleranter)
-  SecAction \
-    "id:900110,\
-    phase:1,\
-    nolog,\
-    pass,\
-    t:none,\
+  # Toleranter: höherer Threshold
+  SecAction "id:900110,phase:1,nolog,pass,t:none,\
     setvar:tx.inbound_anomaly_score_threshold=10,\
     setvar:tx.outbound_anomaly_score_threshold=10"
 
@@ -268,7 +248,7 @@ directives: |
   SecRuleEngine On
 ```
 
-### Einzelne Rules deaktivieren
+### Rules deaktivieren
 
 ```yaml
 directives: |
@@ -277,65 +257,45 @@ directives: |
   Include @owasp_crs/*.conf
   SecRuleEngine On
 
-  # Rule 920350 deaktivieren (Host Header mit IP)
   SecRuleRemoveById 920350
-
-  # Alle Rules mit Tag "attack-sqli" deaktivieren
   SecRuleRemoveByTag "attack-sqli"
-```
-
-### Nur Detection-Modus (kein Blocking)
-
-```yaml
-directives: |
-  Include @coraza.conf-recommended
-  Include @crs-setup.conf.example
-  Include @owasp_crs/*.conf
-
-  # DetectionOnly = loggt, blockt aber nicht
-  SecRuleEngine DetectionOnly
-```
-
-### Eigene Rules hinzufügen
-
-```yaml
-directives: |
-  Include @coraza.conf-recommended
-  Include @crs-setup.conf.example
-  Include @owasp_crs/*.conf
-  SecRuleEngine On
-
-  # Eigene Rule: Block Requests mit bestimmtem User-Agent
-  SecRule REQUEST_HEADERS:User-Agent "bad-bot" \
-    "id:1000001,\
-    phase:1,\
-    deny,\
-    status:403,\
-    msg:'Bad Bot blocked'"
 ```
 
 ### Änderungen anwenden
 
 ```bash
-# Nur coraza-spoa neu starten (kein Rebuild)
 docker compose restart coraza-spoa
-
-# Logs prüfen
 docker compose logs -f coraza-spoa
+```
+
+## Bekannte Einschränkungen
+
+- **Rules Management Reload**: `PUT /api/rules/config` schreibt die neue Config, erfordert aber manuell `docker compose restart coraza-spoa` (coraza-spoa `-autoreload` nutzt fsnotify, was auf Hosts mit vielen inotify-Instanzen fehlschlägt).
+- **coraza-spoa Image**: Kein öffentliches Docker Image — muss lokal gebaut werden (siehe Quick Start).
+
+## Host-Anforderungen
+
+Auf Hosts mit vielen laufenden Prozessen (k8s, viele Container) ggf. inotify-Limit erhöhen:
+
+```bash
+echo "fs.inotify.max_user_instances=512" >> /etc/sysctl.conf
+sysctl -p
 ```
 
 ## Projektstruktur
 
 ```
 coraza-dashboard/
-  docker-compose.yml       — Alle Services
-  .env.example             — Konfigurationsvorlage
+  docker-compose.yml         — Alle Services
+  .env.example               — Konfigurationsvorlage
   scripts/
-    traffic-gen.py         — Traffic-Generator für Tests
+    install.sh               — Vollständiges Install-Script
+    traffic-gen.py           — Traffic-Generator für Tests
   services/
-    backend/               — Go REST API + Log-Tailer
-    frontend/              — Vue 3 Dashboard (Vite + Tailwind)
-    haproxy/               — HAProxy + SPOE Config
-    coraza/                — coraza-spoa Config (OWASP CRS v4)
-  agents/                  — Subagent Task-Dateien (Build-History)
+    backend/                 — Go REST API + Ingest Handler
+    frontend/                — Vue 3 Dashboard (Vite + Tailwind)
+    fluentbit/               — Fluent Bit Config (Log-Forwarder)
+    haproxy/                 — HAProxy + SPOE Config
+    coraza/                  — coraza-spoa Config (OWASP CRS v4)
+  agents/                    — Subagent Task-Dateien (Build-History)
 ```
