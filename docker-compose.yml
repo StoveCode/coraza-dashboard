@@ -17,7 +17,7 @@ services:
   coraza-spoa:
     image: coraza-spoa:local
     entrypoint: ["/coraza-spoa"]
-    command: ["--config", "/etc/coraza-spoa/coraza-spoa.yaml", "--autoreload"]
+    command: ["-config", "/etc/coraza-spoa/coraza-spoa.yaml"]
     volumes:
       - coraza_config:/etc/coraza-spoa    # shared config volume
       - coraza_logs:/var/log/coraza    # shared log volume!
