@@ -21,4 +21,5 @@ Thumbs.db
 
 # AI / Agent task files
 agents/
+WORKFLOW.md
 services/frontend/dist/
