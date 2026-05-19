@@ -51,6 +51,7 @@
       <CategoryToggles
         :categories="store.categories"
         :disabled-tags="store.config.disabled_tags"
+        :paranoia-level="store.config.paranoia_level"
         @toggle="store.toggleCategory"
       />
 

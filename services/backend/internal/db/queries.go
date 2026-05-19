@@ -30,6 +30,8 @@ type ListFilter struct {
 	To         time.Time
 	Disruptive *bool
 	ClientIP   string
+	RuleID     int    // 0 = no filter
+	Tag        string // "" = no filter
 }
 
 // ListResult is the paginated response.
@@ -62,6 +64,16 @@ func ListEvents(ctx context.Context, pool *pgxpool.Pool, f ListFilter) (*ListRes
 	if f.ClientIP != "" {
 		where += " AND client_ip = $" + itoa(i)
 		args = append(args, f.ClientIP)
+		i++
+	}
+	if f.RuleID != 0 {
+		where += " AND rule_id = $" + itoa(i)
+		args = append(args, f.RuleID)
+		i++
+	}
+	if f.Tag != "" {
+		where += " AND $" + itoa(i) + " = ANY(tags)"
+		args = append(args, f.Tag)
 		i++
 	}
 

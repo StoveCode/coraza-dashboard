@@ -67,6 +67,12 @@ func (h *Handler) Events(w http.ResponseWriter, r *http.Request) {
 		b := v == "true"
 		f.Disruptive = &b
 	}
+	if v := q.Get("rule_id"); v != "" {
+		if id, err := strconv.Atoi(v); err == nil {
+			f.RuleID = id
+		}
+	}
+	f.Tag = q.Get("tag")
 
 	result, err := db.ListEvents(r.Context(), h.pool, f)
 	if err != nil {

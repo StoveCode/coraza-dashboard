@@ -26,6 +26,8 @@ export interface EventsFilter {
   to?: string
   disruptive?: boolean | null
   client_ip?: string
+  rule_id?: number
+  tag?: string
 }
 
 export interface EventsResponse {
@@ -44,6 +46,8 @@ export async function fetchEvents(filter: EventsFilter = {}): Promise<EventsResp
     params.disruptive = String(filter.disruptive)
   }
   if (filter.client_ip) params.client_ip = filter.client_ip
+  if (filter.rule_id) params.rule_id = filter.rule_id
+  if (filter.tag) params.tag = filter.tag
 
   const resp = await api.get<EventsResponse>('/api/events', { params })
   return resp.data
