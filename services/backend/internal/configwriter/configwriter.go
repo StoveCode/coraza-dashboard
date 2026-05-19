@@ -22,7 +22,7 @@ applications:
     directives: |
       Include @coraza.conf-recommended
       Include @crs-setup.conf.example
-{{ if gt .ParanoiaLevel 1 }}
+{{ if and .ParanoiaLevelEnabled (gt .ParanoiaLevel 1) }}
       # Paranoia Level
       SecAction "id:900000,phase:1,nolog,pass,t:none,setvar:tx.blocking_paranoia_level={{ .ParanoiaLevel }}"
 {{ end }}{{ if .CustomThresholds }}
@@ -48,6 +48,7 @@ applications:
 type templateData struct {
 	EngineMode           string
 	ParanoiaLevel        int
+	ParanoiaLevelEnabled bool
 	InboundThreshold     int
 	OutboundThreshold    int
 	CustomThresholds     bool
@@ -73,9 +74,10 @@ func WriteConfig(cfg *models.RulesConfig) error {
 
 func GenerateYAML(cfg *models.RulesConfig) (string, error) {
 	data := templateData{
-		EngineMode:        cfg.EngineMode,
-		ParanoiaLevel:     cfg.ParanoiaLevel,
-		InboundThreshold:  cfg.InboundThreshold,
+		EngineMode:           cfg.EngineMode,
+		ParanoiaLevel:        cfg.ParanoiaLevel,
+		ParanoiaLevelEnabled: cfg.ParanoiaLevelEnabled,
+		InboundThreshold:     cfg.InboundThreshold,
 		OutboundThreshold: cfg.OutboundThreshold,
 		CustomThresholds:  cfg.InboundThreshold != 5 || cfg.OutboundThreshold != 4,
 		DisabledRuleIds:   len(cfg.DisabledRuleIds) > 0,

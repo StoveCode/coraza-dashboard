@@ -6,6 +6,7 @@ export const useRulesStore = defineStore('rules', () => {
   const config = ref<RulesConfig>({
     engine_mode: 'On',
     paranoia_level: 1,
+    paranoia_level_enabled: true,
     inbound_threshold: 5,
     outbound_threshold: 4,
     disabled_rule_ids: [],
@@ -82,6 +83,15 @@ export const useRulesStore = defineStore('rules', () => {
     }
   }
 
+  function toggleRuleId(id: string) {
+    const idx = config.value.disabled_rule_ids.indexOf(id)
+    if (idx >= 0) {
+      config.value.disabled_rule_ids.splice(idx, 1)
+    } else {
+      config.value.disabled_rule_ids.push(id)
+    }
+  }
+
   return {
     config,
     categories,
@@ -96,5 +106,6 @@ export const useRulesStore = defineStore('rules', () => {
     toggleCategory,
     addRuleId,
     removeRuleId,
+    toggleRuleId,
   }
 })

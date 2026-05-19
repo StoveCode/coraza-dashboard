@@ -215,9 +215,9 @@ func strconv(n int) string {
 func GetRulesConfig(ctx context.Context, pool *pgxpool.Pool) (*models.RulesConfig, error) {
 	cfg := &models.RulesConfig{}
 	err := pool.QueryRow(ctx, `
-		SELECT engine_mode, paranoia_level, inbound_threshold, outbound_threshold, disabled_rule_ids, disabled_tags
+		SELECT engine_mode, paranoia_level, paranoia_level_enabled, inbound_threshold, outbound_threshold, disabled_rule_ids, disabled_tags
 		FROM rules_config WHERE id = 1
-	`).Scan(&cfg.EngineMode, &cfg.ParanoiaLevel, &cfg.InboundThreshold, &cfg.OutboundThreshold,
+	`).Scan(&cfg.EngineMode, &cfg.ParanoiaLevel, &cfg.ParanoiaLevelEnabled, &cfg.InboundThreshold, &cfg.OutboundThreshold,
 		&cfg.DisabledRuleIds, &cfg.DisabledTags)
 	if err != nil {
 		return nil, err
@@ -235,10 +235,10 @@ func GetRulesConfig(ctx context.Context, pool *pgxpool.Pool) (*models.RulesConfi
 func SaveRulesConfig(ctx context.Context, pool *pgxpool.Pool, cfg *models.RulesConfig) error {
 	_, err := pool.Exec(ctx, `
 		UPDATE rules_config
-		SET engine_mode=$1, paranoia_level=$2, inbound_threshold=$3, outbound_threshold=$4,
-		    disabled_rule_ids=$5, disabled_tags=$6, updated_at=NOW()
+		SET engine_mode=$1, paranoia_level=$2, paranoia_level_enabled=$3, inbound_threshold=$4, outbound_threshold=$5,
+		    disabled_rule_ids=$6, disabled_tags=$7, updated_at=NOW()
 		WHERE id=1
-	`, cfg.EngineMode, cfg.ParanoiaLevel, cfg.InboundThreshold, cfg.OutboundThreshold,
+	`, cfg.EngineMode, cfg.ParanoiaLevel, cfg.ParanoiaLevelEnabled, cfg.InboundThreshold, cfg.OutboundThreshold,
 		cfg.DisabledRuleIds, cfg.DisabledTags)
 	return err
 }

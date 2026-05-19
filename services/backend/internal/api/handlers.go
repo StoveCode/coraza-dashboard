@@ -128,16 +128,23 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 }
 
 var ruleCategories = []models.RuleCategory{
-	{Tag: "attack-sqli", Label: "SQL Injection", Description: "SQLi attacks via libinjection and pattern matching"},
-	{Tag: "attack-xss", Label: "Cross-Site Scripting", Description: "XSS attacks via libinjection and pattern matching"},
-	{Tag: "attack-rce", Label: "Remote Code Execution", Description: "OS command injection and RCE attempts"},
-	{Tag: "attack-lfi", Label: "Local File Inclusion", Description: "Path traversal and LFI attempts"},
-	{Tag: "attack-rfi", Label: "Remote File Inclusion", Description: "RFI attempts"},
-	{Tag: "attack-ssrf", Label: "SSRF", Description: "Server-Side Request Forgery"},
-	{Tag: "attack-injection", Label: "Generic Injection", Description: "Generic injection attacks"},
-	{Tag: "attack-scanner", Label: "Scanner Detection", Description: "Web application scanner user-agents"},
-	{Tag: "attack-protocol", Label: "Protocol Attacks", Description: "HTTP protocol violations"},
-	{Tag: "attack-reputation", Label: "IP Reputation", Description: "Known malicious IP addresses"},
+	{Tag: "attack-sqli",               Label: "SQL Injection",              Description: "SQL injection attacks via libinjection and pattern matching"},
+	{Tag: "attack-xss",                Label: "Cross-Site Scripting",       Description: "XSS attacks via libinjection and pattern matching"},
+	{Tag: "attack-rce",                Label: "Remote Code Execution",      Description: "OS command injection, RCE, web shells"},
+	{Tag: "attack-lfi",                Label: "Local File Inclusion",       Description: "Path traversal and local file inclusion attempts"},
+	{Tag: "attack-rfi",                Label: "Remote File Inclusion",      Description: "Remote file inclusion attempts"},
+	{Tag: "attack-ssrf",               Label: "Server-Side Request Forgery", Description: "SSRF attacks including cloud metadata access"},
+	{Tag: "attack-ssti",               Label: "Template Injection",         Description: "Server-side template injection attacks"},
+	{Tag: "attack-injection-php",      Label: "PHP Injection",              Description: "PHP-specific injection attacks and dangerous functions"},
+	{Tag: "attack-injection-java",     Label: "Java Injection",             Description: "Java-specific injection attacks"},
+	{Tag: "attack-injection-generic",  Label: "Generic Injection",          Description: "Language-agnostic injection attacks"},
+	{Tag: "attack-protocol",           Label: "Protocol Attacks",           Description: "HTTP protocol violations and smuggling"},
+	{Tag: "attack-multipart-header",   Label: "Multipart Header Attacks",   Description: "Malformed multipart/form-data headers"},
+	{Tag: "attack-fixation",           Label: "Session Fixation",           Description: "Session fixation and hijacking attempts"},
+	{Tag: "attack-disclosure",         Label: "Information Disclosure",     Description: "Server error and source code leakage detection"},
+	{Tag: "attack-reputation-scanner", Label: "Scanner Detection",          Description: "Known web application scanner user-agents"},
+	{Tag: "attack-generic",            Label: "Generic Enforcement",        Description: "Method enforcement and common exceptions"},
+	{Tag: "attack-deprecated-header",  Label: "Deprecated Headers",         Description: "Deprecated or dangerous HTTP headers"},
 }
 
 func (h *Handler) GetRulesConfig(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +175,7 @@ func (h *Handler) PutRulesConfig(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "paranoia_level must be 1-4", http.StatusBadRequest)
 		return
 	}
+	// paranoia_level_enabled is a plain bool — no constraint needed
 	if cfg.InboundThreshold <= 0 || cfg.OutboundThreshold <= 0 {
 		jsonError(w, "thresholds must be > 0", http.StatusBadRequest)
 		return

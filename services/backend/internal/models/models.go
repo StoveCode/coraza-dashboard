@@ -49,12 +49,13 @@ type TopRule struct {
 
 // RulesConfig represents the WAF rules configuration.
 type RulesConfig struct {
-	EngineMode        string   `json:"engine_mode"`
-	ParanoiaLevel     int      `json:"paranoia_level"`
-	InboundThreshold  int      `json:"inbound_threshold"`
-	OutboundThreshold int      `json:"outbound_threshold"`
-	DisabledRuleIds   []string `json:"disabled_rule_ids"`
-	DisabledTags      []string `json:"disabled_tags"`
+	EngineMode           string   `json:"engine_mode"`
+	ParanoiaLevel        int      `json:"paranoia_level"`
+	ParanoiaLevelEnabled bool     `json:"paranoia_level_enabled"`
+	InboundThreshold     int      `json:"inbound_threshold"`
+	OutboundThreshold    int      `json:"outbound_threshold"`
+	DisabledRuleIds      []string `json:"disabled_rule_ids"`
+	DisabledTags         []string `json:"disabled_tags"`
 }
 
 // RuleCategory represents a CRS rule category.
