@@ -22,7 +22,7 @@ applications:
     directives: |
       Include @coraza.conf-recommended
       Include @crs-setup.conf.example
-{{ if and .ParanoiaLevelEnabled (gt .ParanoiaLevel 1) }}
+{{ if gt .ParanoiaLevel 0 }}
       # Paranoia Level
       SecAction "id:900000,phase:1,nolog,pass,t:none,setvar:tx.blocking_paranoia_level={{ .ParanoiaLevel }}"
 {{ end }}{{ if .CustomThresholds }}

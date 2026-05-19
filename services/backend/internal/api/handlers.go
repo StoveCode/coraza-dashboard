@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
+	"github.com/corazawaf/coraza-dashboard/internal/catalog"
 	"github.com/corazawaf/coraza-dashboard/internal/configwriter"
 	"github.com/corazawaf/coraza-dashboard/internal/db"
 	"github.com/corazawaf/coraza-dashboard/internal/models"
@@ -22,12 +23,19 @@ import (
 )
 
 type Handler struct {
-	pool    *pgxpool.Pool
-	scraper *scraper.Scraper
+	pool        *pgxpool.Pool
+	scraper     *scraper.Scraper
+	ruleCatalog []catalog.Rule
 }
 
 func NewHandler(pool *pgxpool.Pool, sc *scraper.Scraper) *Handler {
-	return &Handler{pool: pool, scraper: sc}
+	rules, err := catalog.Load()
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to load CRS rule catalog")
+		rules = []catalog.Rule{}
+	}
+	log.Info().Int("rules", len(rules)).Msg("CRS rule catalog loaded")
+	return &Handler{pool: pool, scraper: sc, ruleCatalog: rules}
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
@@ -127,25 +135,7 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
-var ruleCategories = []models.RuleCategory{
-	{Tag: "attack-sqli",               Label: "SQL Injection",              Description: "SQL injection attacks via libinjection and pattern matching"},
-	{Tag: "attack-xss",                Label: "Cross-Site Scripting",       Description: "XSS attacks via libinjection and pattern matching"},
-	{Tag: "attack-rce",                Label: "Remote Code Execution",      Description: "OS command injection, RCE, web shells"},
-	{Tag: "attack-lfi",                Label: "Local File Inclusion",       Description: "Path traversal and local file inclusion attempts"},
-	{Tag: "attack-rfi",                Label: "Remote File Inclusion",      Description: "Remote file inclusion attempts"},
-	{Tag: "attack-ssrf",               Label: "Server-Side Request Forgery", Description: "SSRF attacks including cloud metadata access"},
-	{Tag: "attack-ssti",               Label: "Template Injection",         Description: "Server-side template injection attacks"},
-	{Tag: "attack-injection-php",      Label: "PHP Injection",              Description: "PHP-specific injection attacks and dangerous functions"},
-	{Tag: "attack-injection-java",     Label: "Java Injection",             Description: "Java-specific injection attacks"},
-	{Tag: "attack-injection-generic",  Label: "Generic Injection",          Description: "Language-agnostic injection attacks"},
-	{Tag: "attack-protocol",           Label: "Protocol Attacks",           Description: "HTTP protocol violations and smuggling"},
-	{Tag: "attack-multipart-header",   Label: "Multipart Header Attacks",   Description: "Malformed multipart/form-data headers"},
-	{Tag: "attack-fixation",           Label: "Session Fixation",           Description: "Session fixation and hijacking attempts"},
-	{Tag: "attack-disclosure",         Label: "Information Disclosure",     Description: "Server error and source code leakage detection"},
-	{Tag: "attack-reputation-scanner", Label: "Scanner Detection",          Description: "Known web application scanner user-agents"},
-	{Tag: "attack-generic",            Label: "Generic Enforcement",        Description: "Method enforcement and common exceptions"},
-	{Tag: "attack-deprecated-header",  Label: "Deprecated Headers",         Description: "Deprecated or dangerous HTTP headers"},
-}
+
 
 func (h *Handler) GetRulesConfig(w http.ResponseWriter, r *http.Request) {
 	cfg, err := db.GetRulesConfig(r.Context(), h.pool)
@@ -171,8 +161,8 @@ func (h *Handler) PutRulesConfig(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "engine_mode must be On, DetectionOnly, or Off", http.StatusBadRequest)
 		return
 	}
-	if cfg.ParanoiaLevel < 1 || cfg.ParanoiaLevel > 4 {
-		jsonError(w, "paranoia_level must be 1-4", http.StatusBadRequest)
+	if cfg.ParanoiaLevel < 0 || cfg.ParanoiaLevel > 4 {
+		jsonError(w, "paranoia_level must be 0-4 (0 = manual mode)", http.StatusBadRequest)
 		return
 	}
 	// paranoia_level_enabled is a plain bool — no constraint needed
@@ -227,7 +217,24 @@ func (h *Handler) PutRulesConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetRuleCategories(w http.ResponseWriter, r *http.Request) {
-	jsonOK(w, ruleCategories)
+	seen := map[string]bool{}
+	var cats []models.RuleCategory
+	for _, rule := range h.ruleCatalog {
+		if seen[rule.Tag] {
+			continue
+		}
+		seen[rule.Tag] = true
+		cats = append(cats, models.RuleCategory{
+			Tag:         rule.Tag,
+			Label:       catalog.TagLabel(rule.Tag),
+			Description: catalog.TagDescription(rule.Tag),
+		})
+	}
+	jsonOK(w, cats)
+}
+
+func (h *Handler) GetRuleCatalog(w http.ResponseWriter, r *http.Request) {
+	jsonOK(w, h.ruleCatalog)
 }
 
 // Ingest receives log lines from Fluent Bit (POST /api/ingest)
