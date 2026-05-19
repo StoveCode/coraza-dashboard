@@ -16,6 +16,7 @@ type Rule struct {
 	ParanoiaLevel int    `json:"paranoia_level"`
 	Tag           string `json:"tag"`
 	Severity      string `json:"severity"`
+	Directive     string `json:"directive"`
 }
 
 var (
@@ -95,9 +96,18 @@ func parseConf(content string) []Rule {
 			ParanoiaLevel: pl,
 			Tag:           tagM[1],
 			Severity:      sev,
+			Directive:     cleanDirective(chunk),
 		})
 	}
 	return rules
+}
+
+func cleanDirective(s string) string {
+	// Resolve backslash line continuations
+	s = regexp.MustCompile(`\\\s*\n\s*`).ReplaceAllString(s, " ")
+	// Collapse multiple whitespace into single space
+	s = regexp.MustCompile(`\s{2,}`).ReplaceAllString(s, " ")
+	return strings.TrimSpace(s)
 }
 
 // TagLabel returns a human-readable label for a CRS attack tag.

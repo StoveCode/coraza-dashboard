@@ -37,6 +37,7 @@ export interface CRSRule {
   paranoia_level: number
   tag: string
   severity: string
+  directive?: string
 }
 
 export async function fetchRuleCatalog(): Promise<CRSRule[]> {
