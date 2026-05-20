@@ -2,10 +2,14 @@ package parser
 
 import (
 	"encoding/json"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/corazawaf/coraza-dashboard/internal/models"
 )
+
+var anomalyScoreRe = regexp.MustCompile(`Total Score:\s*(\d+)`)
 
 // LogLine is the top-level structure of each coraza-spoa JSON log entry.
 type LogLine struct {
@@ -67,6 +71,23 @@ func ParseLine(raw []byte) *models.WAFEvent {
 
 	if event.Timestamp.IsZero() {
 		event.Timestamp = time.Now().UTC()
+	}
+
+	// Parse anomaly score and block type for blocking rules
+	if m.RuleID == 949110 || m.RuleID == 949111 {
+		event.BlockType = "inbound"
+		if match := anomalyScoreRe.FindStringSubmatch(m.Msg); len(match) == 2 {
+			if score, err := strconv.Atoi(match[1]); err == nil {
+				event.AnomalyScore = score
+			}
+		}
+	} else if m.RuleID == 959100 {
+		event.BlockType = "outbound"
+		if match := anomalyScoreRe.FindStringSubmatch(m.Msg); len(match) == 2 {
+			if score, err := strconv.Atoi(match[1]); err == nil {
+				event.AnomalyScore = score
+			}
+		}
 	}
 
 	return event

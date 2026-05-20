@@ -14,11 +14,12 @@ func InsertEvent(ctx context.Context, pool *pgxpool.Pool, e *models.WAFEvent) er
 	_, err := pool.Exec(ctx, `
 		INSERT INTO waf_events
 			(timestamp, client_ip, server, uri, rule_id, rule_msg, rule_file,
-			 severity, severity_id, phase, phase_id, disruptive, tags, data, unique_id, raw_log)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+			 severity, severity_id, phase, phase_id, disruptive, tags, data, unique_id, raw_log,
+			 anomaly_score, block_type)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
 	`, e.Timestamp, e.Client, e.Server, e.URI, e.RuleID, e.RuleMsg, e.RuleFile,
 		e.Severity, e.SeverityID, e.Phase, e.PhaseID, e.Disruptive,
-		e.Tags, e.Data, e.UniqueID, e.RawLog)
+		e.Tags, e.Data, e.UniqueID, e.RawLog, e.AnomalyScore, e.BlockType)
 	return err
 }
 
@@ -32,6 +33,7 @@ type ListFilter struct {
 	ClientIP   string
 	RuleID     int    // 0 = no filter
 	Tag        string // "" = no filter
+	BlockType  string // "" = no filter
 }
 
 // ListResult is the paginated response.
@@ -76,6 +78,11 @@ func ListEvents(ctx context.Context, pool *pgxpool.Pool, f ListFilter) (*ListRes
 		args = append(args, f.Tag)
 		i++
 	}
+	if f.BlockType != "" {
+		where += " AND block_type = $" + itoa(i)
+		args = append(args, f.BlockType)
+		i++
+	}
 
 	countArgs := make([]interface{}, len(args))
 	copy(countArgs, args)
@@ -93,7 +100,8 @@ func ListEvents(ctx context.Context, pool *pgxpool.Pool, f ListFilter) (*ListRes
 
 	rows, err := pool.Query(ctx, `
 		SELECT id, timestamp, client_ip, server, uri, rule_id, rule_msg, rule_file,
-		       severity, severity_id, phase, phase_id, disruptive, tags, data, unique_id
+		       severity, severity_id, phase, phase_id, disruptive, tags, data, unique_id,
+		       anomaly_score, block_type
 		FROM waf_events `+where+`
 		ORDER BY timestamp DESC
 		LIMIT $`+itoa(i)+` OFFSET $`+itoa(i+1), args...)
@@ -107,7 +115,8 @@ func ListEvents(ctx context.Context, pool *pgxpool.Pool, f ListFilter) (*ListRes
 		var e models.WAFEvent
 		if err := rows.Scan(&e.ID, &e.Timestamp, &e.Client, &e.Server, &e.URI,
 			&e.RuleID, &e.RuleMsg, &e.RuleFile, &e.Severity, &e.SeverityID,
-			&e.Phase, &e.PhaseID, &e.Disruptive, &e.Tags, &e.Data, &e.UniqueID); err != nil {
+			&e.Phase, &e.PhaseID, &e.Disruptive, &e.Tags, &e.Data, &e.UniqueID,
+			&e.AnomalyScore, &e.BlockType); err != nil {
 			return nil, err
 		}
 		events = append(events, e)
@@ -120,8 +129,10 @@ func GetStats(ctx context.Context, pool *pgxpool.Pool) (*models.Stats, error) {
 	var s models.Stats
 
 	// Counts
-	_ = pool.QueryRow(ctx, "SELECT COUNT(DISTINCT unique_id) FROM waf_events WHERE rule_id IN (949110, 949111)").Scan(&s.TotalBlocks)
-	_ = pool.QueryRow(ctx, "SELECT COUNT(DISTINCT unique_id) FROM waf_events WHERE rule_id NOT IN (949110, 949111)").Scan(&s.TotalDetections)
+	_ = pool.QueryRow(ctx, "SELECT COUNT(DISTINCT unique_id) FROM waf_events WHERE rule_id IN (949110, 949111)").Scan(&s.TotalInboundBlocks)
+	_ = pool.QueryRow(ctx, "SELECT COUNT(DISTINCT unique_id) FROM waf_events WHERE rule_id = 959100").Scan(&s.TotalOutboundBlocks)
+	s.TotalBlocks = s.TotalInboundBlocks + s.TotalOutboundBlocks
+	_ = pool.QueryRow(ctx, "SELECT COUNT(DISTINCT unique_id) FROM waf_events WHERE rule_id NOT IN (949110, 949111, 959100)").Scan(&s.TotalDetections)
 
 	// Top IPs
 	rows, err := pool.Query(ctx, `

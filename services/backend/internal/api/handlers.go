@@ -81,6 +81,7 @@ func (h *Handler) Events(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	f.Tag = q.Get("tag")
+	f.BlockType = q.Get("block_type")
 
 	result, err := db.ListEvents(r.Context(), h.pool, f)
 	if err != nil {

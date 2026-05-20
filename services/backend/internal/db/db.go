@@ -64,12 +64,16 @@ CREATE TABLE IF NOT EXISTS waf_events (
     tags        TEXT[],
     data        TEXT,
     unique_id   TEXT,
-    raw_log     JSONB
+    raw_log     JSONB,
+    anomaly_score INTEGER NOT NULL DEFAULT 0,
+    block_type    VARCHAR(10) NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_waf_events_timestamp  ON waf_events(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_waf_events_client_ip  ON waf_events(client_ip);
 CREATE INDEX IF NOT EXISTS idx_waf_events_disruptive ON waf_events(disruptive);
 CREATE INDEX IF NOT EXISTS idx_waf_events_rule_id    ON waf_events(rule_id);
+ALTER TABLE waf_events ADD COLUMN IF NOT EXISTS anomaly_score INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE waf_events ADD COLUMN IF NOT EXISTS block_type VARCHAR(10) NOT NULL DEFAULT '';
 `
 
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {

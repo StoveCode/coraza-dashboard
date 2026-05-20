@@ -21,14 +21,18 @@ type WAFEvent struct {
 	Disruptive bool      `json:"disruptive"`
 	Tags       []string  `json:"tags"`
 	Data       string    `json:"data"`
-	UniqueID   string    `json:"unique_id"`
-	RawLog     []byte    `json:"raw_log,omitempty"`
+	UniqueID     string    `json:"unique_id"`
+	RawLog       []byte    `json:"raw_log,omitempty"`
+	AnomalyScore int       `json:"anomaly_score"`  // 0 = no block event
+	BlockType    string    `json:"block_type"`     // "inbound", "outbound", "" = not a block
 }
 
 // Stats aggregates statistics for the dashboard.
 type Stats struct {
-	TotalBlocks     int64         `json:"total_blocks"`
-	TotalDetections int64         `json:"total_detections"`
+	TotalBlocks         int64         `json:"total_blocks"`
+	TotalInboundBlocks  int64         `json:"total_inbound_blocks"`
+	TotalOutboundBlocks int64         `json:"total_outbound_blocks"`
+	TotalDetections     int64         `json:"total_detections"`
 	TopIPs          []TopEntry    `json:"top_ips"`
 	TopIPsBlocked   []TopEntry    `json:"top_ips_blocked"`
 	TopRules        []TopRule     `json:"top_rules"`
