@@ -56,12 +56,16 @@
           v-model="store.config.paranoia_level"
           v-model:enabled="store.config.paranoia_level_enabled"
         />
-        <ThresholdInputs
+        <RequestInspectionPanel
           v-model:inbound="store.config.inbound_threshold"
-          v-model:outbound="store.config.outbound_threshold"
-          v-model:responseCheck="store.config.response_check"
         />
       </div>
+
+      <!-- Data Leakage Prevention -->
+      <DataLeakagePanel
+        v-model:outbound="store.config.outbound_threshold"
+        v-model:responseCheck="store.config.response_check"
+      />
 
       <!-- CRS Categories -->
       <CategoryToggles
@@ -91,7 +95,8 @@ import { useRulesStore } from '../stores/rules'
 import { fetchRuleCatalog, type CRSRule } from '../api/rules'
 import EngineToggle from '../components/rules/EngineToggle.vue'
 import ParanoiaSlider from '../components/rules/ParanoiaSlider.vue'
-import ThresholdInputs from '../components/rules/ThresholdInputs.vue'
+import RequestInspectionPanel from '../components/rules/RequestInspectionPanel.vue'
+import DataLeakagePanel from '../components/rules/DataLeakagePanel.vue'
 import CategoryToggles from '../components/rules/CategoryToggles.vue'
 import DisabledRuleIds from '../components/rules/DisabledRuleIds.vue'
 
