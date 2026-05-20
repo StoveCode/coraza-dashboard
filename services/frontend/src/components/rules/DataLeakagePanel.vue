@@ -1,13 +1,29 @@
 <template>
-  <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Data Leakage Prevention</h2>
-      <button @click="infoOpen = !infoOpen" class="text-gray-500 hover:text-gray-300 transition-colors" title="About response inspection">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-      </button>
+  <div class="bg-gray-900/80 rounded-2xl p-6">
+    <!-- Header with toggle as prominent action -->
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-0.5">Data Leakage Prevention</h2>
+        <p class="text-xs text-gray-500">Outbound response scanning</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <button @click="infoOpen = !infoOpen" class="text-gray-500 hover:text-gray-300 transition-colors" title="About response inspection">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </button>
+        <button
+          @click="$emit('update:responseCheck', !responseCheck)"
+          :class="[
+            'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border',
+            responseCheck
+              ? 'bg-green-600 text-white border-green-500'
+              : 'bg-gray-700 text-gray-400 border-gray-600 hover:bg-gray-600'
+          ]"
+        >
+          {{ responseCheck ? '● Enabled' : '○ Disabled' }}
+        </button>
+      </div>
     </div>
 
     <!-- Collapsible info box -->
@@ -20,28 +36,6 @@
         <p>• <span class="text-gray-300">Web shells in responses</span> — detects compromise</p>
       </div>
       <p class="pt-1 text-gray-500">Requires <code class="text-gray-400">response_check: true</code> in coraza-spoa config.</p>
-    </div>
-
-    <!-- Response Check Toggle -->
-    <div class="flex items-center justify-between bg-gray-800/50 rounded-lg px-3 py-2 mb-5">
-      <div>
-        <span class="text-xs font-medium text-gray-300">Response Check</span>
-        <p class="text-xs text-gray-500 mt-0.5">Enable outbound response scanning</p>
-      </div>
-      <button
-        @click="$emit('update:responseCheck', !responseCheck)"
-        :class="[
-          'relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none',
-          responseCheck ? 'bg-blue-600' : 'bg-gray-600'
-        ]"
-      >
-        <span
-          :class="[
-            'inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform',
-            responseCheck ? 'translate-x-4' : 'translate-x-1'
-          ]"
-        />
-      </button>
     </div>
 
     <!-- Outbound Threshold -->
@@ -59,24 +53,24 @@
       </div>
 
       <!-- Visual Score Bar -->
-      <div class="relative h-8 mb-1">
-        <div class="absolute inset-x-0 top-3 h-1.5 bg-gray-700 rounded-full"></div>
+      <div class="relative h-12 mb-1">
+        <div class="absolute inset-x-0 top-5 h-1.5 bg-gray-700 rounded-full"></div>
         <template v-for="score in scoreBadges" :key="score.name">
           <div
             class="absolute -translate-x-1/2 flex flex-col items-center"
             :style="{ left: scoreToPercent(score.value) + '%' }"
           >
-            <div :class="['text-xs px-1 py-0.5 rounded font-mono leading-none', score.cls]" style="font-size: 9px;">
+            <div :class="['text-xs px-1.5 py-0.5 rounded font-mono leading-none', score.cls]" style="margin-top: 2px; font-size: 10px;">
               {{ score.name }}={{ score.value }}
             </div>
-            <div class="w-px h-2 bg-gray-600 mt-0.5"></div>
+            <div class="w-px h-2.5 bg-gray-600 mt-0.5"></div>
           </div>
         </template>
         <div
           class="absolute -translate-x-1/2 flex flex-col items-center pointer-events-none"
           :style="{ left: scoreToPercent(outbound) + '%' }"
         >
-          <div class="text-blue-400 font-bold text-base leading-none" style="margin-top: -2px">▼</div>
+          <div class="text-sky-400 drop-shadow font-bold text-base leading-none" style="margin-top: 16px">▼</div>
         </div>
       </div>
 

@@ -1,15 +1,15 @@
 <template>
-  <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">CRS Rule Categories</h2>
+  <div class="bg-gray-900/80 rounded-2xl p-6">
+    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">CRS Rule Categories</h2>
     <div class="space-y-2">
       <div
         v-for="cat in categories"
         :key="cat.tag"
-        class="bg-gray-800 rounded-lg overflow-hidden"
+        class="bg-gray-800/50 rounded-lg overflow-hidden"
       >
         <!-- Category Header -->
         <div
-          class="flex items-center justify-between px-4 py-3 cursor-pointer select-none hover:bg-gray-750"
+          class="flex items-center justify-between px-5 py-3 cursor-pointer select-none hover:bg-gray-800"
           @click="toggleOpen(cat.tag)"
         >
           <div class="flex items-center gap-2 min-w-0">
@@ -37,7 +37,7 @@
             </div>
           </div>
           <div class="flex items-center gap-3 ml-3 flex-shrink-0">
-            <span class="text-xs text-gray-500">{{ activeRuleCount(cat.tag) }} / {{ rulesForTag(cat.tag).length }} active</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400">{{ activeRuleCount(cat.tag) }} / {{ rulesForTag(cat.tag).length }} active</span>
             <!-- Category Toggle -->
             <button
               @click.stop="!isCategoryFullyCoveredByPL(cat.tag) && !isCategoryFullyExcludedByPL(cat.tag) && $emit('toggle-tag', cat.tag)"
@@ -67,11 +67,11 @@
         </div>
 
         <!-- Expanded Rule List -->
-        <div v-if="openCategories.has(cat.tag)" class="border-t border-gray-700/50">
+        <div v-if="openCategories.has(cat.tag)" class="border-t border-gray-800/60">
           <div
             v-for="rule in rulesForTag(cat.tag)"
             :key="rule.id"
-            class="flex items-center gap-3 px-4 py-2.5 border-b border-gray-700/30 last:border-b-0 transition-opacity"
+            class="flex items-center gap-3 px-5 py-2 border-b border-gray-800/60 last:border-b-0 transition-opacity"
             :class="{
               'opacity-70': isCoveredByPL(rule) && !isTagDisabled(cat.tag),
               'opacity-40': isExcludedByPL(rule) || isTagDisabled(cat.tag)
@@ -133,7 +133,7 @@
               ></span>
             </button>
           </div>
-          <div v-if="rulesForTag(cat.tag).length === 0" class="px-4 py-3 text-xs text-gray-600 italic">
+          <div v-if="rulesForTag(cat.tag).length === 0" class="px-5 py-3 text-xs text-gray-600 italic">
             No rules in catalog for this category.
           </div>
         </div>
@@ -260,19 +260,16 @@ function isRuleDisabled(id: number): boolean {
   return props.disabledRuleIds.includes(String(id))
 }
 
-// Rule is active via PL (covered = within level, already active through PL)
 function isCoveredByPL(rule: CRSRule): boolean {
   return props.paranoiaLevelEnabled && props.paranoiaLevel > 0
     && rule.paranoia_level <= props.paranoiaLevel
 }
 
-// Rule is inactive via PL (above the level, automatically deactivated by PL)
 function isExcludedByPL(rule: CRSRule): boolean {
   return props.paranoiaLevelEnabled && props.paranoiaLevel > 0
     && rule.paranoia_level > props.paranoiaLevel
 }
 
-// Whether a rule can be toggled manually (no PL active or PL=0)
 function isManuallyToggleable(rule: CRSRule): boolean {
   return !props.paranoiaLevelEnabled || props.paranoiaLevel === 0
 }

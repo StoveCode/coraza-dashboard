@@ -1,16 +1,18 @@
 <template>
-  <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">WAF Engine Mode</h2>
+  <div class="bg-gray-900/80 rounded-2xl p-6">
     <div class="flex gap-3">
       <button
         v-for="mode in modes"
         :key="mode.value"
         @click="$emit('update:modelValue', mode.value)"
         :class="[
-          'px-5 py-2 rounded-lg font-semibold text-sm transition-all border',
-          modelValue === mode.value ? mode.activeClass : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700'
+          'flex-1 px-6 py-3 rounded-xl font-semibold text-sm transition-all border',
+          modelValue === mode.value
+            ? mode.activeClass + ' shadow-lg scale-[1.02]'
+            : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700'
         ]"
       >
+        <span v-if="modelValue === mode.value" class="mr-1.5">●</span>
         {{ mode.label }}
       </button>
     </div>

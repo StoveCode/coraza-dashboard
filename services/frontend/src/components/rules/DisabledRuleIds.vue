@@ -1,7 +1,7 @@
 <template>
-  <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Disable Individual Rules</h2>
-    <div class="flex gap-2 mb-4">
+  <div class="bg-gray-900/80 rounded-2xl p-6">
+    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Disable Individual Rules</h2>
+    <div class="flex gap-2 mb-3">
       <input
         v-model="newId"
         @keyup.enter="add"
@@ -14,14 +14,14 @@
         class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
       >+ Add</button>
     </div>
-    <div v-if="ruleIds.length > 0" class="flex flex-wrap gap-2">
+    <div v-if="ruleIds.length > 0" class="flex flex-wrap gap-1.5">
       <span
         v-for="id in ruleIds"
         :key="id"
-        class="flex items-center gap-1.5 bg-gray-700 text-gray-200 text-sm px-3 py-1 rounded-full"
+        class="flex items-center gap-1 bg-gray-700 text-gray-200 text-xs px-2 py-0.5 rounded-full"
       >
         {{ id }}
-        <button @click="$emit('remove', id)" class="text-gray-400 hover:text-red-400 transition-colors text-xs">×</button>
+        <button @click="$emit('remove', id)" class="text-gray-400 hover:text-red-400 transition-colors text-xs leading-none">×</button>
       </span>
     </div>
     <p v-else class="text-xs text-gray-500">No individual rules disabled.</p>

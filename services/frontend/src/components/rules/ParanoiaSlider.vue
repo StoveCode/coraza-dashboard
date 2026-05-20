@@ -1,6 +1,6 @@
 <template>
-  <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Paranoia Level</h2>
+  <div class="bg-gray-900/80 rounded-2xl p-6">
+    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Paranoia Level</h2>
 
     <!-- PL Enable/Disable Toggle -->
     <div class="flex items-center gap-3 mb-4">
@@ -39,7 +39,7 @@
           :key="lvl"
           @click="$emit('update:modelValue', lvl)"
           :class="[
-            'w-10 h-10 rounded-lg font-bold text-sm transition-all border',
+            'flex-1 py-3 rounded-lg font-bold text-sm transition-all border',
             modelValue === lvl ? 'bg-blue-600 text-white border-blue-500' : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700'
           ]"
         >{{ lvl }}</button>
@@ -154,13 +154,6 @@ const accentClasses: Record<number, string> = {
   2: 'text-yellow-400',
   3: 'text-orange-400',
   4: 'text-red-400',
-}
-
-const levelDot: Record<number, string> = {
-  1: '🟢',
-  2: '🟡',
-  3: '🟠',
-  4: '🔴',
 }
 </script>
 

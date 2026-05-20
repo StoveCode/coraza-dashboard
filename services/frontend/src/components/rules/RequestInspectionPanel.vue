@@ -1,8 +1,8 @@
 <template>
-  <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+  <div class="bg-gray-900/80 rounded-2xl p-6">
     <!-- Header -->
     <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Request Inspection</h2>
+      <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-widest">Request Inspection</h2>
       <button @click="infoOpen = !infoOpen" class="text-gray-500 hover:text-gray-300 transition-colors" title="About inbound inspection">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -27,18 +27,18 @@
       </div>
 
       <!-- Visual Score Bar -->
-      <div class="relative h-8 mb-1">
-        <div class="absolute inset-x-0 top-3 h-1.5 bg-gray-700 rounded-full"></div>
+      <div class="relative h-12 mb-1">
+        <div class="absolute inset-x-0 top-5 h-1.5 bg-gray-700 rounded-full"></div>
         <!-- Score badges -->
         <template v-for="score in scoreBadges" :key="score.name">
           <div
             class="absolute -translate-x-1/2 flex flex-col items-center"
             :style="{ left: scoreToPercent(score.value) + '%' }"
           >
-            <div :class="['text-xs px-1 py-0.5 rounded font-mono leading-none', score.cls]" style="margin-top: 0px; font-size: 9px;">
+            <div :class="['text-xs px-1.5 py-0.5 rounded font-mono leading-none', score.cls]" style="margin-top: 2px; font-size: 10px;">
               {{ score.name }}={{ score.value }}
             </div>
-            <div class="w-px h-2 bg-gray-600 mt-0.5"></div>
+            <div class="w-px h-2.5 bg-gray-600 mt-0.5"></div>
           </div>
         </template>
         <!-- Threshold marker -->
@@ -46,7 +46,7 @@
           class="absolute -translate-x-1/2 flex flex-col items-center pointer-events-none"
           :style="{ left: scoreToPercent(inbound) + '%' }"
         >
-          <div class="text-blue-400 font-bold text-base leading-none" style="margin-top: -2px">▼</div>
+          <div class="text-sky-400 drop-shadow font-bold text-base leading-none" style="margin-top: 16px">▼</div>
         </div>
       </div>
 

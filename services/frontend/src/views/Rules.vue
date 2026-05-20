@@ -1,7 +1,7 @@
 <template>
-  <div class="p-6 space-y-5">
+  <div class="p-6">
     <!-- Header -->
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between mb-6">
       <h1 class="text-xl font-bold text-gray-100">Rules Management</h1>
       <div class="flex items-center gap-3">
         <!-- Unsaved changes badge -->
@@ -50,22 +50,32 @@
       <!-- Engine Mode -->
       <EngineToggle v-model="store.config.engine_mode" />
 
-      <!-- Paranoia + Thresholds -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <ParanoiaSlider
-          v-model="store.config.paranoia_level"
-          v-model:enabled="store.config.paranoia_level_enabled"
-        />
-        <RequestInspectionPanel
-          v-model:inbound="store.config.inbound_threshold"
-        />
+      <div class="border-t border-gray-800/60 pt-5 mt-5"></div>
+
+      <!-- Paranoia + Request Inspection -->
+      <div class="grid grid-cols-5 gap-5">
+        <div class="col-span-2">
+          <ParanoiaSlider
+            v-model="store.config.paranoia_level"
+            v-model:enabled="store.config.paranoia_level_enabled"
+          />
+        </div>
+        <div class="col-span-3">
+          <RequestInspectionPanel
+            v-model:inbound="store.config.inbound_threshold"
+          />
+        </div>
       </div>
+
+      <div class="border-t border-gray-800/60 pt-5 mt-5"></div>
 
       <!-- Data Leakage Prevention -->
       <DataLeakagePanel
         v-model:outbound="store.config.outbound_threshold"
         v-model:responseCheck="store.config.response_check"
       />
+
+      <div class="border-t border-gray-800/60 pt-5 mt-5"></div>
 
       <!-- CRS Categories -->
       <CategoryToggles
@@ -78,6 +88,8 @@
         @toggle-tag="store.toggleCategory"
         @toggle-rule="store.toggleRuleId"
       />
+
+      <div class="border-t border-gray-800/60 pt-5 mt-5"></div>
 
       <!-- Disabled Rule IDs -->
       <DisabledRuleIds
