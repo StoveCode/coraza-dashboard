@@ -38,7 +38,7 @@ applications:
       # Disabled Tags
 {{ range .DisabledTagsList }}      SecRuleRemoveByTag "{{ . }}"
 {{ end }}{{ end }}
-    response_check: false
+    response_check: {{ if .ResponseCheck }}true{{ else }}false{{ end }}
     transaction_ttl_ms: 60000
     log_level: info
     log_file: /dev/stdout
@@ -56,6 +56,7 @@ type templateData struct {
 	DisabledRuleIdsStr   string
 	DisabledTags         bool
 	DisabledTagsList     []string
+	ResponseCheck        bool
 }
 
 func WriteConfig(cfg *models.RulesConfig) error {
@@ -84,6 +85,7 @@ func GenerateYAML(cfg *models.RulesConfig) (string, error) {
 		DisabledRuleIdsStr: strings.Join(cfg.DisabledRuleIds, " "),
 		DisabledTags:      len(cfg.DisabledTags) > 0,
 		DisabledTagsList:  cfg.DisabledTags,
+		ResponseCheck:     cfg.ResponseCheck,
 	}
 
 	tmpl, err := template.New("coraza").Parse(yamlTemplate)

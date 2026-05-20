@@ -120,8 +120,8 @@ func GetStats(ctx context.Context, pool *pgxpool.Pool) (*models.Stats, error) {
 	var s models.Stats
 
 	// Counts
-	_ = pool.QueryRow(ctx, "SELECT COUNT(*) FROM waf_events WHERE disruptive=true").Scan(&s.TotalBlocks)
-	_ = pool.QueryRow(ctx, "SELECT COUNT(*) FROM waf_events WHERE disruptive=false").Scan(&s.TotalDetections)
+	_ = pool.QueryRow(ctx, "SELECT COUNT(DISTINCT unique_id) FROM waf_events WHERE rule_id IN (949110, 949111)").Scan(&s.TotalBlocks)
+	_ = pool.QueryRow(ctx, "SELECT COUNT(DISTINCT unique_id) FROM waf_events WHERE rule_id NOT IN (949110, 949111)").Scan(&s.TotalDetections)
 
 	// Top IPs
 	rows, err := pool.Query(ctx, `
@@ -134,6 +134,20 @@ func GetStats(ctx context.Context, pool *pgxpool.Pool) (*models.Stats, error) {
 			var e models.TopEntry
 			_ = rows.Scan(&e.Label, &e.Count)
 			s.TopIPs = append(s.TopIPs, e)
+		}
+	}
+
+	// Top IPs Blocked
+	rowsBlocked, err := pool.Query(ctx, `
+		SELECT client_ip, COUNT(DISTINCT unique_id) as cnt 
+		FROM waf_events WHERE rule_id IN (949110, 949111) 
+		GROUP BY client_ip ORDER BY cnt DESC LIMIT 10`)
+	if err == nil {
+		defer rowsBlocked.Close()
+		for rowsBlocked.Next() {
+			var e models.TopEntry
+			_ = rowsBlocked.Scan(&e.Label, &e.Count)
+			s.TopIPsBlocked = append(s.TopIPsBlocked, e)
 		}
 	}
 
@@ -215,10 +229,10 @@ func strconv(n int) string {
 func GetRulesConfig(ctx context.Context, pool *pgxpool.Pool) (*models.RulesConfig, error) {
 	cfg := &models.RulesConfig{}
 	err := pool.QueryRow(ctx, `
-		SELECT engine_mode, paranoia_level, paranoia_level_enabled, inbound_threshold, outbound_threshold, disabled_rule_ids, disabled_tags
+		SELECT engine_mode, paranoia_level, paranoia_level_enabled, inbound_threshold, outbound_threshold, disabled_rule_ids, disabled_tags, response_check
 		FROM rules_config WHERE id = 1
 	`).Scan(&cfg.EngineMode, &cfg.ParanoiaLevel, &cfg.ParanoiaLevelEnabled, &cfg.InboundThreshold, &cfg.OutboundThreshold,
-		&cfg.DisabledRuleIds, &cfg.DisabledTags)
+		&cfg.DisabledRuleIds, &cfg.DisabledTags, &cfg.ResponseCheck)
 	if err != nil {
 		return nil, err
 	}
@@ -236,9 +250,9 @@ func SaveRulesConfig(ctx context.Context, pool *pgxpool.Pool, cfg *models.RulesC
 	_, err := pool.Exec(ctx, `
 		UPDATE rules_config
 		SET engine_mode=$1, paranoia_level=$2, paranoia_level_enabled=$3, inbound_threshold=$4, outbound_threshold=$5,
-		    disabled_rule_ids=$6, disabled_tags=$7, updated_at=NOW()
+		    disabled_rule_ids=$6, disabled_tags=$7, response_check=$8, updated_at=NOW()
 		WHERE id=1
 	`, cfg.EngineMode, cfg.ParanoiaLevel, cfg.ParanoiaLevelEnabled, cfg.InboundThreshold, cfg.OutboundThreshold,
-		cfg.DisabledRuleIds, cfg.DisabledTags)
+		cfg.DisabledRuleIds, cfg.DisabledTags, cfg.ResponseCheck)
 	return err
 }

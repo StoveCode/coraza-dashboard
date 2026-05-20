@@ -30,6 +30,7 @@ type Stats struct {
 	TotalBlocks     int64         `json:"total_blocks"`
 	TotalDetections int64         `json:"total_detections"`
 	TopIPs          []TopEntry    `json:"top_ips"`
+	TopIPsBlocked   []TopEntry    `json:"top_ips_blocked"`
 	TopRules        []TopRule     `json:"top_rules"`
 	TopTags         []TopEntry    `json:"top_tags"`
 	TopPhases       []TopEntry    `json:"top_phases"`
@@ -56,6 +57,7 @@ type RulesConfig struct {
 	OutboundThreshold    int      `json:"outbound_threshold"`
 	DisabledRuleIds      []string `json:"disabled_rule_ids"`
 	DisabledTags         []string `json:"disabled_tags"`
+	ResponseCheck        bool     `json:"response_check"`
 }
 
 // RuleCategory represents a CRS rule category.

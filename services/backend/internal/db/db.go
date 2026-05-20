@@ -40,10 +40,12 @@ CREATE TABLE IF NOT EXISTS rules_config (
     inbound_threshold     INT NOT NULL DEFAULT 5,
     outbound_threshold    INT NOT NULL DEFAULT 4,
     disabled_rule_ids     TEXT[] NOT NULL DEFAULT '{}',
-    disabled_tags         TEXT[] NOT NULL DEFAULT '{}'
+    disabled_tags         TEXT[] NOT NULL DEFAULT '{}',
+    response_check        BOOLEAN NOT NULL DEFAULT FALSE
 );
 INSERT INTO rules_config (id) VALUES (1) ON CONFLICT DO NOTHING;
 ALTER TABLE rules_config ADD COLUMN IF NOT EXISTS paranoia_level_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE rules_config ADD COLUMN IF NOT EXISTS response_check BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE TABLE IF NOT EXISTS waf_events (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
