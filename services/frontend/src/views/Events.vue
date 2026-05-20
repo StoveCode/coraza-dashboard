@@ -5,7 +5,7 @@
       <span class="text-sm text-gray-400">{{ store.total }} total</span>
     </div>
 
-    <FilterBar @apply="onFilter" />
+    <FilterBar ref="filterBarRef" :initial-ip="initialIP" @apply="onFilter" />
 
     <div class="bg-gray-900 border border-gray-800 rounded-xl">
       <EventsTable :events="store.events" />
@@ -30,17 +30,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import { useEventsStore } from '../stores/events'
 import type { EventsFilter } from '../api/events'
 import FilterBar from '../components/FilterBar.vue'
 import EventsTable from '../components/EventsTable.vue'
 
 const store = useEventsStore()
+const route = useRoute()
 
 const page = ref(0)
 const perPage = 50
 const activeFilter = ref<EventsFilter>({})
+const filterBarRef = ref<InstanceType<typeof FilterBar> | null>(null)
+
+const initialIP = ref(route.query.client_ip as string | undefined)
 
 const totalPages = computed(() => Math.max(1, Math.ceil(store.total / perPage)))
 
@@ -62,5 +67,14 @@ function nextPage() {
   if (page.value < totalPages.value - 1) { page.value++; load() }
 }
 
-onMounted(load)
+onMounted(async () => {
+  const ip = route.query.client_ip as string | undefined
+  if (ip) {
+    activeFilter.value = { client_ip: ip }
+    await nextTick()
+    filterBarRef.value?.applyFilter()
+  } else {
+    load()
+  }
+})
 </script>

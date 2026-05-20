@@ -59,6 +59,7 @@
         <ThresholdInputs
           v-model:inbound="store.config.inbound_threshold"
           v-model:outbound="store.config.outbound_threshold"
+          v-model:responseCheck="store.config.response_check"
         />
       </div>
 

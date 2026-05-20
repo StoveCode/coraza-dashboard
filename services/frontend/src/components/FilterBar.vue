@@ -70,17 +70,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import type { EventsFilter } from '../api/events'
 
+const props = defineProps<{ initialIp?: string }>()
 const emit = defineEmits<{ apply: [filter: EventsFilter] }>()
 
 const localDisruptive = ref('')
-const localIP = ref('')
+const localIP = ref(props.initialIp ?? '')
 const localRuleId = ref<number | null>(null)
 const localTag = ref('')
 const localFrom = ref('')
 const localTo = ref('')
+
+watch(() => props.initialIp, (val) => {
+  if (val) localIP.value = val
+})
 
 function buildFilter(): EventsFilter {
   const f: EventsFilter = {}
@@ -102,4 +107,7 @@ function reset() {
   localTo.value = ''
   emit('apply', {})
 }
+
+// expose for parent to trigger apply
+defineExpose({ buildFilter, applyFilter: () => emit('apply', buildFilter()) })
 </script>

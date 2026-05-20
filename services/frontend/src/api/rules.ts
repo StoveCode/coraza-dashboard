@@ -8,6 +8,7 @@ export interface RulesConfig {
   outbound_threshold: number
   disabled_rule_ids: string[]
   disabled_tags: string[]
+  response_check: boolean
 }
 
 export interface RuleCategory {

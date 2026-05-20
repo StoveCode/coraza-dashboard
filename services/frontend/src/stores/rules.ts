@@ -11,6 +11,7 @@ export const useRulesStore = defineStore('rules', () => {
     outbound_threshold: 4,
     disabled_rule_ids: [],
     disabled_tags: [],
+    response_check: false,
   })
 
   const savedConfig = ref<RulesConfig | null>(null)

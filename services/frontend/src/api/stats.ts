@@ -20,6 +20,7 @@ export interface Stats {
   total_blocks: number
   total_detections: number
   top_ips: TopEntry[]
+  top_ips_blocked: TopEntry[]
   top_rules: TopRule[]
   top_tags: TopEntry[]
   top_phases: TopEntry[]
