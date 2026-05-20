@@ -52,7 +52,7 @@
 
       <div class="border-t border-gray-800/60 pt-5 mt-5"></div>
 
-      <!-- Paranoia + Request Inspection -->
+      <!-- Paranoia | Request Inspection + Data Leakage -->
       <div class="grid grid-cols-5 gap-5">
         <div class="col-span-2">
           <ParanoiaSlider
@@ -60,20 +60,16 @@
             v-model:enabled="store.config.paranoia_level_enabled"
           />
         </div>
-        <div class="col-span-3">
+        <div class="col-span-3 flex flex-col gap-5">
           <RequestInspectionPanel
             v-model:inbound="store.config.inbound_threshold"
           />
+          <DataLeakagePanel
+            v-model:outbound="store.config.outbound_threshold"
+            v-model:responseCheck="store.config.response_check"
+          />
         </div>
       </div>
-
-      <div class="border-t border-gray-800/60 pt-5 mt-5"></div>
-
-      <!-- Data Leakage Prevention -->
-      <DataLeakagePanel
-        v-model:outbound="store.config.outbound_threshold"
-        v-model:responseCheck="store.config.response_check"
-      />
 
       <div class="border-t border-gray-800/60 pt-5 mt-5"></div>
 
