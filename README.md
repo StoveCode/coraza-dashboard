@@ -1,10 +1,10 @@
 # coraza-dashboard
 
-Logging & Monitoring Dashboard für **OWASP Coraza WAF** + **HAProxy**.
+Logging & Monitoring Dashboard for **OWASP Coraza WAF** + **HAProxy**.
 
-Zeigt Block-Events, Traffic-Statistiken und WAF-Aktivitäten in einem Dark-Theme Web-Dashboard — inklusive Live-Konfiguration der WAF-Regeln ohne Restart.
+Displays block events, traffic statistics, and WAF activity in a dark-theme web dashboard — including live configuration of WAF rules without restart.
 
-## Architektur
+## Architecture
 
 ```
 [Client]
@@ -18,7 +18,7 @@ Zeigt Block-Events, Traffic-Statistiken und WAF-Aktivitäten in einem Dark-Theme
                                        │
                                        ▼
                               [Fluent Bit :24224]
-                              Filtert & forwardet WAF Events
+                              Filters & forwards WAF events
                                        │
                                POST /api/ingest
                                        │
@@ -34,16 +34,16 @@ Zeigt Block-Events, Traffic-Statistiken und WAF-Aktivitäten in einem Dark-Theme
 
 ## Services
 
-| Service       | Port  | Beschreibung                                                |
+| Service       | Port  | Description                                                 |
 |---------------|-------|-------------------------------------------------------------|
-| `haproxy`     | 80    | Reverse Proxy mit Coraza SPOE-Filter                        |
-| `haproxy`     | 8404  | HAProxy Stats-Seite (admin/changeme)                        |
+| `haproxy`     | 80    | Reverse Proxy with Coraza SPOE filter                       |
+| `haproxy`     | 8404  | HAProxy Stats page (admin/changeme)                         |
 | `coraza-spoa` | 9000  | OWASP Coraza WAF Agent (SPOE) — CRS v4.25.0                 |
-| `fluentbit`   | 24224 | Log-Forwarder: empfängt coraza-spoa Logs, pushed an Backend |
+| `fluentbit`   | 24224 | Log forwarder: receives coraza-spoa logs, pushes to backend |
 | `backend`     | 8080  | Go REST API + Ingest Handler                                |
 | `frontend`    | 3000  | Vue 3 Dashboard                                             |
-| `httpbin`     | 8081  | Echo-Backend (für Tests)                                    |
-| `postgres`    | 5432  | PostgreSQL Datenbank                                        |
+| `httpbin`     | 8081  | Echo backend (for testing)                                  |
+| `postgres`    | 5432  | PostgreSQL database                                         |
 
 ## Quick Start
 
@@ -53,15 +53,15 @@ cd coraza-dashboard
 sudo bash scripts/install.sh
 ```
 
-Das war's. **Kein Build nötig** — alle Images kommen direkt von Docker Hub.
+That's it. **No build required** — all images are pulled directly from Docker Hub.
 
-Das Install-Script erledigt automatisch:
-- Docker + Docker Compose installieren (apt / dnf / pacman)
-- `stove301/coraza-spoa:latest` von Docker Hub pullen
-- `.env` aus `.env.example` anlegen
-- Stack starten + Health-Check
+The install script automatically handles:
+- Installing Docker + Docker Compose (apt / dnf / pacman)
+- Pulling `stove301/coraza-spoa:latest` from Docker Hub
+- Creating `.env` from `.env.example`
+- Starting the stack + health check
 
-### Manuell starten (ohne Install-Script)
+### Manual start (without install script)
 
 ```bash
 git clone https://github.com/StoveCode/coraza-dashboard.git
@@ -70,50 +70,50 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Docker Compose zieht alle Images automatisch von Docker Hub — kein `docker build` erforderlich.
+Docker Compose pulls all images automatically from Docker Hub — no `docker build` required.
 
 ## Docker Hub Images
 
-Alle Images sind öffentlich auf Docker Hub verfügbar:
+All images are publicly available on Docker Hub:
 
-| Image                                   | Beschreibung                                     |
+| Image                                   | Description                                      |
 |-----------------------------------------|--------------------------------------------------|
 | `stove301/coraza-dashboard-backend`     | Go REST API + Ingest Handler                     |
 | `stove301/coraza-dashboard-frontend`    | Vue 3 Dashboard                                  |
 | `stove301/coraza-spoa`                  | OWASP Coraza WAF SPOE Agent (CRS v4.25.0)        |
 
 **Tags:**
-- `latest` — aktuell stabile Version
-- `crs-v4.25.0` — coraza-spoa mit OWASP CRS v4.25.0
+- `latest` — current stable version
+- `crs-v4.25.0` — coraza-spoa with OWASP CRS v4.25.0
 
-Lokales Bauen ist weiterhin möglich — `build:`-Direktiven sind in `docker-compose.yml` erhalten und werden via `docker compose build` genutzt.
+Local builds are still possible — `build:` directives are preserved in `docker-compose.yml` and used via `docker compose build`.
 
 ## URLs
 
-| URL                              | Beschreibung                   |
+| URL                              | Description                    |
 |----------------------------------|--------------------------------|
 | http://localhost:3000            | WAF Dashboard                  |
 | http://localhost:8080/api/health | Backend Health Check           |
-| http://localhost:8080/api/stats  | Aggregierte Stats (JSON)       |
+| http://localhost:8080/api/stats  | Aggregated stats (JSON)        |
 | http://localhost:8404/stats      | HAProxy Stats (admin/changeme) |
-| http://localhost:8081            | httpbin Echo-Backend           |
+| http://localhost:8081            | httpbin Echo Backend           |
 
-## Traffic-Generator
+## Traffic Generator
 
-Test-Script das zufälligen legitimen und bösartigen Traffic generiert:
+Test script that generates random legitimate and malicious traffic:
 
 ```bash
-# 1 Request alle 10 Sekunden, 100% Angriffe
+# 1 request every 10 seconds, 100% attacks
 python3 scripts/traffic-gen.py --rate 0.1 --ratio 1.0
 
-# Optionen
+# Options
 python3 scripts/traffic-gen.py --help
-#   --target  Ziel-URL (default: http://localhost:80)
-#   --rate    Requests pro Sekunde (default: 1.0)
-#   --ratio   Anteil Angriffs-Requests (default: 0.4)
+#   --target  Target URL (default: http://localhost:80)
+#   --rate    Requests per second (default: 1.0)
+#   --ratio   Fraction of attack requests (default: 0.4)
 ```
 
-Angriffsvektoren: SQLi, XSS, LFI, Path Traversal, RCE, SSRF, Scanner-UAs, Recon
+Attack vectors: SQLi, XSS, LFI, Path Traversal, RCE, SSRF, Scanner UAs, Recon
 
 ## Screenshots
 
@@ -130,58 +130,58 @@ Angriffsvektoren: SQLi, XSS, LFI, Path Traversal, RCE, SSRF, Scanner-UAs, Recon
 
 ## Dashboard Features
 
-### Charts (kompakt + expandierbar)
-Alle Charts sind standardmäßig kompakt dargestellt. Per **⤢ Expand** Button öffnet sich ein Modal mit voller Größe.
+### Charts (compact + expandable)
+All charts are displayed in compact mode by default. Click the **⤢ Expand** button to open a full-size modal.
 
-| Chart               | Beschreibung                          |
+| Chart               | Description                           |
 |---------------------|---------------------------------------|
-| Events / Hour       | Timeline der letzten 24h              |
-| Top Client IPs      | Meist-angreifende IPs                 |
-| Top Rules           | Häufigste ausgelöste WAF-Rules        |
-| Top Tags            | CRS-Angriffskategorien (XSS, SQLi...) |
-| Phase Distribution  | Wo in der Request-Phase geblockt wird |
+| Events / Hour       | Timeline of the last 24h              |
+| Top Client IPs      | Most attacking IPs                    |
+| Top Rules           | Most frequently triggered WAF rules   |
+| Top Tags            | CRS attack categories (XSS, SQLi...)  |
+| Phase Distribution  | Where in the request phase blocks occur |
 
 ### Rules Management (`/rules`)
-Live-Konfiguration der WAF ohne Restart:
+Live WAF configuration without restart:
 
-| Feature                  | Beschreibung                                                                                        |
+| Feature                  | Description                                                                                         |
 |--------------------------|-----------------------------------------------------------------------------------------------------|
 | **Engine Mode**          | `On` / `Detection Only` / `Off`                                                                     |
-| **Paranoia Level**       | Level 1–4 (oder deaktiviert für manuelle Rule-Auswahl)                                              |
-| **Anomaly Thresholds**   | Inbound (Request) + Outbound (Response) Score-Schwellwert                                           |
-| **Response Check**       | Data Leakage Prevention ein/ausschalten                                                             |
-| **CRS-Kategorien**       | SQLi, XSS, RCE, LFI, SSRF, Scanner etc. per Toggle                                                 |
-| **Rule Picker**          | Einzelne CRS-Rules per Catalog-Suche deaktivieren (ID, Name, Tag, Severity)                         |
-| **Orphaned Rules**       | Disabled Rules die nicht mehr im CRS existieren werden markiert und können entfernt werden          |
-| **CRS Version**          | Aktuell geladene CRS-Version angezeigt, Mismatch-Warning wenn Dashboard ≠ coraza-spoa              |
+| **Paranoia Level**       | Level 1–4 (or disabled for manual rule selection)                                                   |
+| **Anomaly Thresholds**   | Inbound (request) + outbound (response) score threshold                                             |
+| **Response Check**       | Enable/disable Data Leakage Prevention                                                              |
+| **CRS Categories**       | SQLi, XSS, RCE, LFI, SSRF, Scanner etc. via toggle                                                 |
+| **Rule Picker**          | Disable individual CRS rules via catalog search (ID, name, tag, severity)                           |
+| **Orphaned Rules**       | Disabled rules that no longer exist in CRS are marked and can be removed                            |
+| **CRS Version**          | Currently loaded CRS version displayed, mismatch warning when dashboard ≠ coraza-spoa              |
 
-Änderungen → **Save Changes** → Backend schreibt neues `coraza-spoa.yaml` → `docker compose restart coraza-spoa`
+Changes → **Save Changes** → backend writes new `coraza-spoa.yaml` → `docker compose restart coraza-spoa`
 
-## API-Referenz (Backend)
+## API Reference (Backend)
 
-| Method | Pfad                    | Beschreibung                                            |
+| Method | Path                    | Description                                             |
 |--------|-------------------------|---------------------------------------------------------|
 | GET    | /api/health             | Health Check                                            |
-| GET    | /api/events             | WAF-Events (paginated, filterbar)                       |
-| GET    | /api/stats              | Aggregierte Statistiken                                 |
-| GET    | /api/metrics            | Prometheus-Metriken (wenn CORAZA_METRICS_URL gesetzt)   |
-| POST   | /api/ingest             | Log-Ingest Endpoint für Fluent Bit                      |
-| GET    | /api/rules/config       | Aktuelle Rules-Konfiguration                            |
-| PUT    | /api/rules/config       | Konfiguration speichern                                 |
-| GET    | /api/rules/categories   | Liste der CRS-Kategorien                                |
-| GET    | /api/rules/catalog      | Vollständiger CRS Rule-Catalog (ID, Name, Tag, Severity, PL) |
-| GET    | /api/system/versions    | CRS-Versionen von Backend + coraza-spoa                 |
+| GET    | /api/events             | WAF events (paginated, filterable)                      |
+| GET    | /api/stats              | Aggregated statistics                                   |
+| GET    | /api/metrics            | Prometheus metrics (when CORAZA_METRICS_URL is set)     |
+| POST   | /api/ingest             | Log ingest endpoint for Fluent Bit                      |
+| GET    | /api/rules/config       | Current rules configuration                             |
+| PUT    | /api/rules/config       | Save configuration                                      |
+| GET    | /api/rules/categories   | List of CRS categories                                  |
+| GET    | /api/rules/catalog      | Full CRS rule catalog (ID, name, tag, severity, PL)     |
+| GET    | /api/system/versions    | CRS versions from backend + coraza-spoa                 |
 
-### GET /api/events Parameter
+### GET /api/events Parameters
 
-| Parameter    | Typ     | Beschreibung                        |
+| Parameter    | Type    | Description                         |
 |--------------|---------|-------------------------------------|
-| `limit`      | int     | Anzahl Einträge (default: 50)       |
-| `offset`     | int     | Paginierung-Offset                  |
-| `from`       | RFC3339 | Von-Zeitstempel                     |
-| `to`         | RFC3339 | Bis-Zeitstempel                     |
-| `disruptive` | bool    | true=Blocks, false=Detections       |
-| `client_ip`  | string  | Filter nach Client-IP               |
+| `limit`      | int     | Number of entries (default: 50)     |
+| `offset`     | int     | Pagination offset                   |
+| `from`       | RFC3339 | From timestamp                      |
+| `to`         | RFC3339 | To timestamp                        |
+| `disruptive` | bool    | true=blocks, false=detections       |
+| `client_ip`  | string  | Filter by client IP                 |
 
 ### GET /api/stats Response
 
@@ -206,7 +206,7 @@ Live-Konfiguration der WAF ohne Restart:
 }
 ```
 
-## Konfiguration (.env)
+## Configuration (.env)
 
 ```env
 # PostgreSQL
@@ -225,16 +225,16 @@ FRONTEND_PORT=3000
 CORS_ALLOWED_ORIGINS=http://localhost:3000
 LOG_LEVEL=info
 
-# Log-Ingest via Fluent Bit (kein file tailer)
+# Log ingest via Fluent Bit (no file tailer)
 LOG_INGEST_MODE=true
 
-# Optional: Prometheus-Scraping von coraza-spoa
+# Optional: Prometheus scraping from coraza-spoa
 # CORAZA_METRICS_URL=http://coraza-spoa:9090/metrics
 ```
 
-## Log-Pipeline
+## Log Pipeline
 
-coraza-spoa schreibt **zerolog JSON Lines** auf **stdout**. Fluent Bit empfängt die Logs via Docker `fluentd` log driver, filtert auf WAF-Events (Zeilen mit `"match"` Feld) und pushed sie per HTTP an `/api/ingest`.
+coraza-spoa writes **zerolog JSON lines** to **stdout**. Fluent Bit receives the logs via Docker `fluentd` log driver, filters for WAF events (lines with a `"match"` field), and pushes them via HTTP to `/api/ingest`.
 
 ```json
 {
@@ -253,11 +253,11 @@ coraza-spoa schreibt **zerolog JSON Lines** auf **stdout**. Fluent Bit empfängt
 }
 ```
 
-`disruptive: true` = Block, `disruptive: false` = Detection (SecRuleEngine DetectionOnly)
+`disruptive: true` = block, `disruptive: false` = detection (SecRuleEngine DetectionOnly)
 
 ## OWASP CRS v4
 
-coraza-spoa lädt automatisch das **OWASP Core Rule Set v4** (aktuell: **v4.25.0**). Konfiguration in `services/coraza/coraza-spoa.yaml`.
+coraza-spoa automatically loads the **OWASP Core Rule Set v4** (currently: **v4.25.0**). Configuration in `services/coraza/coraza-spoa.yaml`.
 
 ### Paranoia Level
 
@@ -266,7 +266,7 @@ directives: |
   Include @coraza.conf-recommended
   Include @crs-setup.conf.example
 
-  # PL2 aktivieren (Standard: 1)
+  # Enable PL2 (default: 1)
   SecAction "id:900000,phase:1,nolog,pass,t:none,setvar:tx.blocking_paranoia_level=2"
 
   Include @owasp_crs/*.conf
@@ -280,7 +280,7 @@ directives: |
   Include @coraza.conf-recommended
   Include @crs-setup.conf.example
 
-  # Toleranter: höherer Threshold
+  # More lenient: higher threshold
   SecAction "id:900110,phase:1,nolog,pass,t:none,\
     setvar:tx.inbound_anomaly_score_threshold=10,\
     setvar:tx.outbound_anomaly_score_threshold=10"
@@ -289,7 +289,7 @@ directives: |
   SecRuleEngine On
 ```
 
-### Rules deaktivieren
+### Disabling Rules
 
 ```yaml
 directives: |
@@ -302,49 +302,49 @@ directives: |
   SecRuleRemoveByTag "attack-sqli"
 ```
 
-### Änderungen anwenden
+### Applying Changes
 
 ```bash
 docker compose restart coraza-spoa
 docker compose logs -f coraza-spoa
 ```
 
-## CRS Update-Prozess
+## CRS Update Process
 
-Das Dashboard zeigt eine **Mismatch-Warning** wenn die CRS-Version im Backend von der im coraza-spoa abweicht.
+The dashboard shows a **mismatch warning** when the CRS version in the backend differs from the one in coraza-spoa.
 
-Update-Prozess:
-1. Neues `stove301/coraza-spoa:crs-vX.Y.Z` Image erscheint auf Docker Hub
+Update process:
+1. A new `stove301/coraza-spoa:crs-vX.Y.Z` image appears on Docker Hub
 2. `docker compose pull && docker compose up -d`
-3. Dashboard-Mismatch-Warning verschwindet automatisch
+3. The dashboard mismatch warning disappears automatically
 
-## Bekannte Einschränkungen
+## Known Limitations
 
-- **Rules Management Reload**: `PUT /api/rules/config` schreibt die neue Config, erfordert aber manuell `docker compose restart coraza-spoa` (coraza-spoa `-autoreload` nutzt fsnotify, was auf Hosts mit vielen inotify-Instanzen fehlschlägt).
+- **Rules Management Reload**: `PUT /api/rules/config` writes the new config, but requires a manual `docker compose restart coraza-spoa` (coraza-spoa `-autoreload` uses fsnotify, which fails on hosts with many inotify instances).
 
-## Host-Anforderungen
+## Host Requirements
 
-Auf Hosts mit vielen laufenden Prozessen (k8s, viele Container) ggf. inotify-Limit erhöhen:
+On hosts with many running processes (k8s, many containers), you may need to increase the inotify limit:
 
 ```bash
 echo "fs.inotify.max_user_instances=512" >> /etc/sysctl.conf
 sysctl -p
 ```
 
-## Projektstruktur
+## Project Structure
 
 ```
 coraza-dashboard/
-  docker-compose.yml         — Alle Services
-  .env.example               — Konfigurationsvorlage
+  docker-compose.yml         — All services
+  .env.example               — Configuration template
   scripts/
-    install.sh               — Vollständiges Install-Script
-    traffic-gen.py           — Traffic-Generator für Tests
+    install.sh               — Full install script
+    traffic-gen.py           — Traffic generator for testing
   services/
     backend/                 — Go REST API + Ingest Handler
     frontend/                — Vue 3 Dashboard (Vite + Tailwind)
-    fluentbit/               — Fluent Bit Config (Log-Forwarder)
-    haproxy/                 — HAProxy + SPOE Config
-    coraza/                  — coraza-spoa Config (OWASP CRS v4)
-  agents/                    — Subagent Task-Dateien (Build-History)
+    fluentbit/               — Fluent Bit config (log forwarder)
+    haproxy/                 — HAProxy + SPOE config
+    coraza/                  — coraza-spoa config (OWASP CRS v4)
+  agents/                    — Subagent task files (build history)
 ```
