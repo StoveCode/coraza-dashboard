@@ -66,7 +66,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - coraza_config:/etc/coraza-spoa    # backend can write config
-      - /var/run/docker.sock:/var/run/docker.sock:ro   # for coraza-spoa restart
+      - /var/run/docker.sock:/var/run/docker.sock:rw   # for coraza-spoa restart
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:
