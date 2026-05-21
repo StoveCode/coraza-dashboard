@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	crs "github.com/corazawaf/coraza-coreruleset"
+	crs "github.com/corazawaf/coraza-coreruleset/v4"
 )
 
 // GetCRSVersion extracts the CRS version from the embedded crs-setup.conf.example.

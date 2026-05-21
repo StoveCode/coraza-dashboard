@@ -47,6 +47,21 @@
       </div>
     </div>
 
+    <!-- CRS Version Mismatch Warning -->
+    <div v-if="versionMismatch" class="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-4">
+      <div class="text-sm text-amber-300">
+        <span class="font-semibold">CRS version mismatch:</span>
+        Dashboard is using CRS {{ systemVersions?.backend_crs_version }} but coraza-spoa is running CRS {{ systemVersions?.spoa_crs_version }}.
+        Rules in the catalog may differ from what the WAF actually enforces.
+      </div>
+      <a
+        href="https://github.com/corazawaf/coraza-dashboard/releases"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition-colors"
+      >View Releases</a>
+    </div>
+
     <div v-if="store.loading" class="text-center text-gray-500 py-12">Loading configuration...</div>
 
     <template v-else>
@@ -84,6 +99,7 @@
         :paranoia-level="store.config.paranoia_level"
         :paranoia-level-enabled="store.config.paranoia_level_enabled"
         :catalog="catalog"
+        :validated-rule-ids="store.config.disabled_rule_ids_validated"
         @toggle-tag="store.toggleCategory"
         @toggle-rule="store.toggleRuleId"
       />
@@ -101,9 +117,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRulesStore } from '../stores/rules'
 import { fetchRuleCatalog, type CRSRule } from '../api/rules'
+import { fetchSystemVersions, type SystemVersions } from '../api/system'
 import EngineToggle from '../components/rules/EngineToggle.vue'
 import ParanoiaSlider from '../components/rules/ParanoiaSlider.vue'
 import RequestInspectionPanel from '../components/rules/RequestInspectionPanel.vue'
@@ -113,6 +130,14 @@ import DisabledRuleIds from '../components/rules/DisabledRuleIds.vue'
 
 const store = useRulesStore()
 const catalog = ref<CRSRule[]>([])
+const systemVersions = ref<SystemVersions | null>(null)
+const versionMismatch = computed(() => {
+  if (!systemVersions.value) return false
+  const bv = systemVersions.value.backend_crs_version
+  const sv = systemVersions.value.spoa_crs_version
+  if (bv === 'unknown' || sv === 'unknown') return false
+  return bv !== sv
+})
 
 async function loadCatalog() {
   try {
@@ -125,6 +150,7 @@ async function loadCatalog() {
 onMounted(() => {
   store.loadConfig()
   loadCatalog()
+  fetchSystemVersions().then(v => { systemVersions.value = v }).catch(() => {})
 })
 </script>
 

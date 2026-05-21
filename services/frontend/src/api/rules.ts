@@ -1,5 +1,13 @@
 import { api } from './client'
 
+export interface ValidatedRuleId {
+  id: string
+  msg?: string
+  tag?: string
+  severity?: string
+  orphaned: boolean
+}
+
 export interface RulesConfig {
   engine_mode: 'On' | 'DetectionOnly' | 'Off'
   paranoia_level: number
@@ -7,6 +15,7 @@ export interface RulesConfig {
   inbound_threshold: number
   outbound_threshold: number
   disabled_rule_ids: string[]
+  disabled_rule_ids_validated?: ValidatedRuleId[]
   disabled_tags: string[]
   response_check: boolean
   crs_version?: string

@@ -81,6 +81,10 @@ export const useRulesStore = defineStore('rules', () => {
     const idx = config.value.disabled_rule_ids.indexOf(id)
     if (idx >= 0) {
       config.value.disabled_rule_ids.splice(idx, 1)
+      if (config.value.disabled_rule_ids_validated) {
+        const vi = config.value.disabled_rule_ids_validated.findIndex(r => r.id === id)
+        if (vi >= 0) config.value.disabled_rule_ids_validated.splice(vi, 1)
+      }
     }
   }
 
@@ -88,6 +92,11 @@ export const useRulesStore = defineStore('rules', () => {
     const idx = config.value.disabled_rule_ids.indexOf(id)
     if (idx >= 0) {
       config.value.disabled_rule_ids.splice(idx, 1)
+      // keep validated list in sync
+      if (config.value.disabled_rule_ids_validated) {
+        const vi = config.value.disabled_rule_ids_validated.findIndex(r => r.id === id)
+        if (vi >= 0) config.value.disabled_rule_ids_validated.splice(vi, 1)
+      }
     } else {
       config.value.disabled_rule_ids.push(id)
     }

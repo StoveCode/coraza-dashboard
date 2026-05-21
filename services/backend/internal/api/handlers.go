@@ -146,7 +146,39 @@ func (h *Handler) GetRulesConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg.CRSVersion = catalog.GetCRSVersion()
+	cfg.DisabledRuleIdsValidated = h.buildValidatedRuleIds(cfg.DisabledRuleIds)
 	jsonOK(w, cfg)
+}
+
+// buildValidatedRuleIds enriches each disabled rule ID with catalog metadata.
+// Rules not found in the catalog are marked as orphaned.
+func (h *Handler) buildValidatedRuleIds(ids []string) []models.ValidatedRuleId {
+	// Build lookup map from catalog
+	type catEntry struct {
+		Msg      string
+		Tag      string
+		Severity string
+	}
+	lookup := make(map[string]catEntry, len(h.ruleCatalog))
+	for _, r := range h.ruleCatalog {
+		key := strconv.Itoa(r.ID)
+		lookup[key] = catEntry{Msg: r.Msg, Tag: r.Tag, Severity: r.Severity}
+	}
+
+	result := make([]models.ValidatedRuleId, 0, len(ids))
+	for _, id := range ids {
+		v := models.ValidatedRuleId{ID: id}
+		if entry, ok := lookup[id]; ok {
+			v.Msg = entry.Msg
+			v.Tag = entry.Tag
+			v.Severity = entry.Severity
+			v.Orphaned = false
+		} else {
+			v.Orphaned = true
+		}
+		result = append(result, v)
+	}
+	return result
 }
 
 func (h *Handler) PutRulesConfig(w http.ResponseWriter, r *http.Request) {

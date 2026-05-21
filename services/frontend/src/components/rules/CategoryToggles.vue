@@ -139,6 +139,47 @@
         </div>
       </div>
     </div>
+
+    <!-- Orphaned / Removed Rules -->
+    <div v-if="orphanedRules.length > 0" class="mt-4 border border-amber-700/40 bg-amber-900/10 rounded-xl overflow-hidden">
+      <!-- Section Header -->
+      <div class="flex items-center gap-2 px-5 py-3 bg-amber-900/20 border-b border-amber-700/30">
+        <svg class="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+        <span class="text-sm font-semibold text-amber-300">Unknown / Removed Rules</span>
+        <span class="ml-auto text-xs text-amber-500 bg-amber-900/40 px-2 py-0.5 rounded-full">{{ orphanedRules.length }}</span>
+      </div>
+      <!-- Info line -->
+      <p class="px-5 py-2 text-xs text-amber-600/80">
+        These rules were disabled but no longer exist in the current CRS version. You can safely remove them.
+      </p>
+      <!-- Orphan rows -->
+      <div
+        v-for="rule in orphanedRules"
+        :key="rule.id"
+        class="flex items-center gap-3 px-5 py-2.5 border-t border-amber-800/30 last:rounded-b-xl"
+      >
+        <!-- Warning dot -->
+        <span class="inline-block w-2 h-2 rounded-full bg-amber-500 flex-shrink-0"></span>
+        <!-- Rule ID -->
+        <span class="text-xs font-mono text-amber-300 flex-shrink-0 w-16">{{ rule.id }}</span>
+        <!-- Label -->
+        <span class="text-xs text-gray-500 italic flex-1">not in current CRS</span>
+        <!-- Enable (remove from disabled) button -->
+        <button
+          @click="$emit('toggle-rule', rule.id)"
+          class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-amber-600 text-xs text-gray-300 hover:text-amber-300 transition-colors"
+          title="Remove this rule from the disabled list"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          Enable
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Rule Directive Modal -->
@@ -219,8 +260,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { RuleCategory, CRSRule } from '../../api/rules'
+import { ref, computed } from 'vue'
+import type { RuleCategory, CRSRule, ValidatedRuleId } from '../../api/rules'
 
 const props = defineProps<{
   categories: RuleCategory[]
@@ -229,6 +270,7 @@ const props = defineProps<{
   paranoiaLevel: number
   paranoiaLevelEnabled: boolean
   catalog: CRSRule[]
+  validatedRuleIds?: ValidatedRuleId[]
 }>()
 
 defineEmits<{
@@ -239,6 +281,10 @@ defineEmits<{
 const openCategories = ref(new Set<string>())
 const activeDirectiveRule = ref<CRSRule | null>(null)
 const copied = ref(false)
+
+const orphanedRules = computed(() =>
+  (props.validatedRuleIds ?? []).filter(r => r.orphaned)
+)
 
 function toggleOpen(tag: string) {
   if (openCategories.value.has(tag)) {

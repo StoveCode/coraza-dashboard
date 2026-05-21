@@ -104,6 +104,7 @@ func main() {
 	r.Put("/api/rules/config", h.PutRulesConfig)
 	r.Get("/api/rules/categories", h.GetRuleCategories)
 	r.Get("/api/rules/catalog", h.GetRuleCatalog)
+	r.Get("/api/system/versions", h.GetSystemVersions)
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {

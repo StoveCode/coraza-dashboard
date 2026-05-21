@@ -61,17 +61,27 @@ type TopRule struct {
 	Count  int64  `json:"count"`
 }
 
+// ValidatedRuleId enriches a disabled rule ID with catalog metadata.
+type ValidatedRuleId struct {
+	ID       string `json:"id"`
+	Msg      string `json:"msg,omitempty"`
+	Tag      string `json:"tag,omitempty"`
+	Severity string `json:"severity,omitempty"`
+	Orphaned bool   `json:"orphaned"`
+}
+
 // RulesConfig represents the WAF rules configuration.
 type RulesConfig struct {
-	EngineMode           string   `json:"engine_mode"`
-	ParanoiaLevel        int      `json:"paranoia_level"`
-	ParanoiaLevelEnabled bool     `json:"paranoia_level_enabled"`
-	InboundThreshold     int      `json:"inbound_threshold"`
-	OutboundThreshold    int      `json:"outbound_threshold"`
-	DisabledRuleIds      []string `json:"disabled_rule_ids"`
-	DisabledTags         []string `json:"disabled_tags"`
-	ResponseCheck        bool     `json:"response_check"`
-	CRSVersion           string   `json:"crs_version,omitempty"`
+	EngineMode                string             `json:"engine_mode"`
+	ParanoiaLevel             int                `json:"paranoia_level"`
+	ParanoiaLevelEnabled      bool               `json:"paranoia_level_enabled"`
+	InboundThreshold          int                `json:"inbound_threshold"`
+	OutboundThreshold         int                `json:"outbound_threshold"`
+	DisabledRuleIds           []string           `json:"disabled_rule_ids"`
+	DisabledRuleIdsValidated  []ValidatedRuleId  `json:"disabled_rule_ids_validated,omitempty"`
+	DisabledTags              []string           `json:"disabled_tags"`
+	ResponseCheck             bool               `json:"response_check"`
+	CRSVersion                string             `json:"crs_version,omitempty"`
 }
 
 // RuleCategory represents a CRS rule category.
