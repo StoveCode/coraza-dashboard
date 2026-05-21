@@ -101,7 +101,7 @@
         :catalog="catalog"
         :validated-rule-ids="store.config.disabled_rule_ids_validated"
         @toggle-tag="store.toggleCategory"
-        @toggle-rule="store.toggleRuleId"
+        @toggle-rule="(id: string) => store.toggleRuleId(id, catalog.value)"
       />
 
       <div class="border-t border-gray-800/60 pt-5 mt-5"></div>
@@ -109,7 +109,7 @@
       <!-- Disabled Rule IDs -->
       <DisabledRuleIds
         :rule-ids="store.config.disabled_rule_ids"
-        @add="store.addRuleId"
+        @add="(id: string) => store.addRuleId(id, catalog.value)"
         @remove="store.removeRuleId"
       />
     </template>
