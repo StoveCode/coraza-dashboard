@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
@@ -165,6 +166,9 @@ func jsonOK(w http.ResponseWriter, v interface{}) {
 	}
 }
 
+var lastRestartMu sync.Mutex
+var lastRestart time.Time
+
 func JSONError(w http.ResponseWriter, msg string, code int) {
 	jsonError(w, msg, code)
 }
@@ -221,6 +225,7 @@ func (h *Handler) buildValidatedRuleIds(ids []string) []models.ValidatedRuleId {
 }
 
 func (h *Handler) PutRulesConfig(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 64*1024) // 64 KB
 	var cfg models.RulesConfig
 	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
 		jsonError(w, "invalid JSON", http.StatusBadRequest)
@@ -250,6 +255,15 @@ func (h *Handler) PutRulesConfig(w http.ResponseWriter, r *http.Request) {
 		cfg.DisabledTags = []string{}
 	}
 
+	// Validate disabled_tags: only safe characters allowed
+	tagPattern := regexp.MustCompile(`^[a-zA-Z0-9_./:@-]+$`)
+	for _, tag := range cfg.DisabledTags {
+		if !tagPattern.MatchString(tag) {
+			jsonError(w, fmt.Sprintf("invalid tag: %q (must match ^[a-zA-Z0-9_./:@-]+$)", tag), http.StatusBadRequest)
+			return
+		}
+	}
+
 	// Validate rule IDs: only numeric values allowed
 	ruleIDPattern := regexp.MustCompile(`^\d+$`)
 	for _, id := range cfg.DisabledRuleIds {
@@ -269,8 +283,17 @@ func (h *Handler) PutRulesConfig(w http.ResponseWriter, r *http.Request) {
 		log.Warn().Err(err).Msg("configwriter.WriteConfig failed (CORAZA_CONFIG_PATH not set?)")
 	}
 
-	// Docker container restart
+	// Docker container restart (debounced)
 	go func() {
+		lastRestartMu.Lock()
+		if time.Since(lastRestart) < 5*time.Second {
+			lastRestartMu.Unlock()
+			log.Info().Msg("restart debounced")
+			return
+		}
+		lastRestart = time.Now()
+		lastRestartMu.Unlock()
+
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
