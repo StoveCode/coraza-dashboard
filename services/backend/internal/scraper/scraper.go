@@ -52,7 +52,7 @@ func (s *Scraper) scrape() {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to read metrics body")
 		return
