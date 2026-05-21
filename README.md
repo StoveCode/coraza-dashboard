@@ -115,6 +115,19 @@ python3 scripts/traffic-gen.py --help
 
 Angriffsvektoren: SQLi, XSS, LFI, Path Traversal, RCE, SSRF, Scanner-UAs, Recon
 
+## Screenshots
+
+### Dashboard
+![Dashboard](docs/screenshots/2.png)
+
+### Events
+![Events](docs/screenshots/1.png)
+
+### Rules Management
+![Rules Management](docs/screenshots/3.png)
+
+---
+
 ## Dashboard Features
 
 ### Charts (kompakt + expandierbar)
