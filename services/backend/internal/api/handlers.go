@@ -145,6 +145,7 @@ func (h *Handler) GetRulesConfig(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	cfg.CRSVersion = catalog.GetCRSVersion()
 	jsonOK(w, cfg)
 }
 

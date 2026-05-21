@@ -2,7 +2,10 @@
   <div class="p-6">
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-xl font-bold text-gray-100">Rules Management</h1>
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-bold text-gray-100">Rules Management</h1>
+        <span v-if="store.config?.crs_version" class="text-xs text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded-full border border-blue-400/30">CRS {{ store.config.crs_version }}</span>
+      </div>
       <div class="flex items-center gap-3">
         <!-- Unsaved changes badge -->
         <span v-if="store.hasUnsavedChanges" class="text-xs text-yellow-400 bg-yellow-400/10 px-3 py-1 rounded-full border border-yellow-400/30">

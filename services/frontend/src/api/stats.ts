@@ -16,9 +16,19 @@ export interface HourBucket {
   count: number
 }
 
+export interface ScoreBucket {
+  range: string
+  count: number
+}
+
 export interface Stats {
   total_blocks: number
+  total_inbound_blocks: number
+  total_outbound_blocks: number
   total_detections: number
+  avg_anomaly_score: number
+  max_anomaly_score: number
+  score_distribution: ScoreBucket[]
   top_ips: TopEntry[]
   top_ips_blocked: TopEntry[]
   top_rules: TopRule[]

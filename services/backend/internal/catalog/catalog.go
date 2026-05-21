@@ -9,6 +9,22 @@ import (
 	crs "github.com/corazawaf/coraza-coreruleset"
 )
 
+// GetCRSVersion extracts the CRS version from the embedded crs-setup.conf.example.
+// Returns a version string like "v4.0.0-rc2" or "unknown" as fallback.
+func GetCRSVersion() string {
+	data, err := fs.ReadFile(crs.FS, "@crs-setup.conf.example")
+	if err != nil {
+		return "unknown"
+	}
+	// Match version patterns like "ver.4.0.0-rc2" or "v4.0.0"
+	re := regexp.MustCompile(`(?i)(?:ver\.|v)(\d+\.\d+\.\d+[\w.-]*)`)
+	m := re.FindStringSubmatch(string(data))
+	if m != nil {
+		return "v" + m[1]
+	}
+	return "unknown"
+}
+
 // Rule represents a single OWASP CRS rule with its key metadata.
 type Rule struct {
 	ID            int    `json:"id"`

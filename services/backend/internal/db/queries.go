@@ -203,6 +203,35 @@ func GetStats(ctx context.Context, pool *pgxpool.Pool) (*models.Stats, error) {
 		}
 	}
 
+	// Anomaly Score stats
+	_ = pool.QueryRow(ctx, "SELECT COALESCE(AVG(anomaly_score::float), 0), COALESCE(MAX(anomaly_score), 0) FROM waf_events WHERE anomaly_score > 0").Scan(&s.AvgAnomalyScore, &s.MaxAnomalyScore)
+
+	// Score distribution
+	type scoreRange struct {
+		label string
+		min   int
+		max   int // -1 = no upper bound
+	}
+	ranges := []scoreRange{
+		{"0-5", 1, 5},
+		{"6-10", 6, 10},
+		{"11-15", 11, 15},
+		{"16-25", 16, 25},
+		{"25+", 26, -1},
+	}
+	for _, sr := range ranges {
+		var cnt int64
+		var qErr error
+		if sr.max == -1 {
+			qErr = pool.QueryRow(ctx, "SELECT COUNT(*) FROM waf_events WHERE anomaly_score >= $1", sr.min).Scan(&cnt)
+		} else {
+			qErr = pool.QueryRow(ctx, "SELECT COUNT(*) FROM waf_events WHERE anomaly_score >= $1 AND anomaly_score <= $2", sr.min, sr.max).Scan(&cnt)
+		}
+		if qErr == nil {
+			s.ScoreDistribution = append(s.ScoreDistribution, models.ScoreBucket{Range: sr.label, Count: cnt})
+		}
+	}
+
 	// Events per hour (last 24h)
 	rows5, err := pool.Query(ctx, `
 		SELECT date_trunc('hour', timestamp) as hr, COUNT(*) as cnt FROM waf_events

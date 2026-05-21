@@ -5,7 +5,7 @@
       v-if="toastVisible"
       class="fixed bottom-6 right-6 z-50 bg-green-800 border border-green-600 text-green-200 text-sm px-4 py-2 rounded-lg shadow-lg transition-opacity"
     >
-      ✓ Rule disabled
+      Rule disabled
     </div>
 
     <table class="w-full text-sm text-left">
@@ -28,7 +28,7 @@
           <td class="px-3 py-2 text-gray-400 whitespace-nowrap">{{ formatTime(e.timestamp) }}</td>
           <td class="px-3 py-2">
             <span :class="e.disruptive ? 'text-red-400 font-semibold' : 'text-yellow-400'">
-              {{ e.disruptive ? '🛑 Block' : '⚠️ Detect' }}
+              {{ e.disruptive ? 'Block' : 'Detect' }}
             </span>
           </td>
           <td class="px-3 py-2 font-mono text-blue-300">{{ e.client_ip }}</td>
@@ -39,9 +39,14 @@
               <button
                 v-if="!PROTECTED_RULE_IDS.includes(e.rule_id)"
                 @click="disableRule(e.rule_id)"
-                class="text-gray-600 hover:text-red-400 transition-colors text-xs"
+                class="text-gray-600 hover:text-red-400 transition-colors"
                 title="Disable this rule"
-              >🚫</button>
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                </svg>
+              </button>
             </div>
             <span class="text-gray-300 text-xs">{{ e.rule_msg }}</span>
           </td>
@@ -92,7 +97,7 @@ function severityClass(s: string): string {
 }
 
 function scoreBadgeText(ruleId: number, severity: string): string {
-  if (PROTECTED_RULE_IDS.includes(ruleId)) return '⚡ BLOCK'
+  if (PROTECTED_RULE_IDS.includes(ruleId)) return 'BLOCK'
   switch (severity?.toUpperCase()) {
     case 'CRITICAL': return '+5'
     case 'ERROR': return '+4'

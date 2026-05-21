@@ -33,12 +33,21 @@ type Stats struct {
 	TotalInboundBlocks  int64         `json:"total_inbound_blocks"`
 	TotalOutboundBlocks int64         `json:"total_outbound_blocks"`
 	TotalDetections     int64         `json:"total_detections"`
+	AvgAnomalyScore     float64       `json:"avg_anomaly_score"`
+	MaxAnomalyScore     int           `json:"max_anomaly_score"`
+	ScoreDistribution   []ScoreBucket `json:"score_distribution"`
 	TopIPs          []TopEntry    `json:"top_ips"`
 	TopIPsBlocked   []TopEntry    `json:"top_ips_blocked"`
 	TopRules        []TopRule     `json:"top_rules"`
 	TopTags         []TopEntry    `json:"top_tags"`
 	TopPhases       []TopEntry    `json:"top_phases"`
 	EventsPerHour   []HourBucket  `json:"events_per_hour"`
+}
+
+// ScoreBucket represents a range of anomaly scores and how many events fall in it.
+type ScoreBucket struct {
+	Range string `json:"range"`
+	Count int64  `json:"count"`
 }
 
 type TopEntry struct {
@@ -62,6 +71,7 @@ type RulesConfig struct {
 	DisabledRuleIds      []string `json:"disabled_rule_ids"`
 	DisabledTags         []string `json:"disabled_tags"`
 	ResponseCheck        bool     `json:"response_check"`
+	CRSVersion           string   `json:"crs_version,omitempty"`
 }
 
 // RuleCategory represents a CRS rule category.
