@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -123,6 +124,9 @@ func ListEvents(ctx context.Context, pool *pgxpool.Pool, f ListFilter) (*ListRes
 		}
 		events = append(events, e)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
 	return &ListResult{Total: total, Events: events}, nil
 }
 
@@ -156,6 +160,7 @@ func GetStats(ctx context.Context, pool *pgxpool.Pool) (*models.Stats, error) {
 			_ = rows.Scan(&e.Label, &e.Count)
 			s.TopIPs = append(s.TopIPs, e)
 		}
+		_ = rows.Err()
 	}
 
 	// Top IPs Blocked
@@ -170,6 +175,7 @@ func GetStats(ctx context.Context, pool *pgxpool.Pool) (*models.Stats, error) {
 			_ = rowsBlocked.Scan(&e.Label, &e.Count)
 			s.TopIPsBlocked = append(s.TopIPsBlocked, e)
 		}
+		_ = rowsBlocked.Err()
 	}
 
 	// Top Rules
@@ -184,6 +190,7 @@ func GetStats(ctx context.Context, pool *pgxpool.Pool) (*models.Stats, error) {
 			_ = rows2.Scan(&e.RuleID, &e.Msg, &e.Count)
 			s.TopRules = append(s.TopRules, e)
 		}
+		_ = rows2.Err()
 	}
 
 	// Top Tags
@@ -197,6 +204,7 @@ func GetStats(ctx context.Context, pool *pgxpool.Pool) (*models.Stats, error) {
 			_ = rows3.Scan(&e.Label, &e.Count)
 			s.TopTags = append(s.TopTags, e)
 		}
+		_ = rows3.Err()
 	}
 
 	// Top Phases
@@ -211,6 +219,7 @@ func GetStats(ctx context.Context, pool *pgxpool.Pool) (*models.Stats, error) {
 			_ = rows4.Scan(&e.Label, &e.Count)
 			s.TopPhases = append(s.TopPhases, e)
 		}
+		_ = rows4.Err()
 	}
 
 	// Anomaly Score stats
@@ -254,6 +263,7 @@ func GetStats(ctx context.Context, pool *pgxpool.Pool) (*models.Stats, error) {
 			_ = rows5.Scan(&b.Hour, &b.Count)
 			s.EventsPerHour = append(s.EventsPerHour, b)
 		}
+		_ = rows5.Err()
 	}
 
 	return &s, nil
