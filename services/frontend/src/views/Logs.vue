@@ -102,6 +102,7 @@
 
     <!-- Log output -->
     <div
+      ref="logContainer"
       class="bg-gray-900 border border-gray-800 rounded-lg overflow-auto font-mono text-xs leading-5"
       style="max-height: 65vh; min-height: 200px;"
     >
@@ -122,6 +123,18 @@
           <span v-html="formatLine(line)"></span>
         </div>
       </div>
+    </div>
+
+    <!-- Bottom actions -->
+    <div class="flex justify-between items-center mt-2 text-xs text-gray-500">
+      <span>Showing {{ filteredLines.length }} / {{ rawLines.length }} lines</span>
+      <button
+        @click="scrollToBottom"
+        class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors"
+        title="Scroll to bottom"
+      >
+        ↓ Scroll to bottom
+      </button>
     </div>
 
     <!-- Copy toast -->
@@ -157,6 +170,13 @@ const containerRunning = ref<boolean | null>(null)
 const fetchError = ref<string | null>(null)
 const lastRefresh = ref('')
 const copyToast = ref(false)
+const logContainer = ref<HTMLElement | null>(null)
+
+function scrollToBottom() {
+  if (logContainer.value) {
+    logContainer.value.scrollTop = logContainer.value.scrollHeight
+  }
+}
 
 let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
 
