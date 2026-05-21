@@ -114,7 +114,8 @@ func execSPOAVersion(ctx context.Context, cli *client.Client, containerID string
 	defer resp.Close()
 
 	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, resp.Reader); err != nil && err != io.EOF {
+	var stderr bytes.Buffer
+	if _, err := stdcopy.StdCopy(&buf, &stderr, resp.Reader); err != nil && err != io.EOF {
 		log.Warn().Err(err).Msg("exec read failed")
 		return ""
 	}
@@ -200,8 +201,16 @@ func (h *Handler) GetServiceLogs(w http.ResponseWriter, r *http.Request) {
 		tailStr = "100"
 	}
 	tailN, err := strconv.Atoi(tailStr)
-	if err != nil || tailN < 1 || tailN > 500 {
-		tailN = 100
+	if err != nil {
+		jsonError(w, "tail must be an integer", http.StatusBadRequest)
+		return
+	}
+	if tailN < 1 {
+		jsonError(w, "tail must be >= 1", http.StatusBadRequest)
+		return
+	}
+	if tailN > 500 {
+		tailN = 500 // cap, no error
 	}
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
