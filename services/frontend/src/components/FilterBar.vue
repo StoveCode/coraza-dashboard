@@ -87,6 +87,7 @@ const localDisruptive = ref('')
 const localIP = ref(props.initialIp ?? '')
 const localRuleId = ref<number | null>(null)
 const localTag = ref('')
+const localBlockType = ref('')
 const localFrom = ref('')
 const localTo = ref('')
 
@@ -100,6 +101,7 @@ function buildFilter(): EventsFilter {
   if (localIP.value) f.client_ip = localIP.value
   if (localRuleId.value) f.rule_id = localRuleId.value
   if (localTag.value) f.tag = localTag.value
+  if (localBlockType.value) f.block_type = localBlockType.value
   if (localFrom.value) f.from = new Date(localFrom.value).toISOString()
   if (localTo.value) f.to = new Date(localTo.value).toISOString()
   return f
@@ -110,6 +112,7 @@ function reset() {
   localIP.value = ''
   localRuleId.value = null
   localTag.value = ''
+  localBlockType.value = ''
   localFrom.value = ''
   localTo.value = ''
   emit('apply', {})

@@ -32,8 +32,8 @@ export async function fetchRulesConfig(): Promise<RulesConfig> {
   return resp.data
 }
 
-export async function saveRulesConfig(cfg: RulesConfig): Promise<{ status: string; message: string }> {
-  const resp = await api.put<{ status: string; message: string }>('/api/rules/config', cfg)
+export async function saveRulesConfig(cfg: RulesConfig): Promise<{ status: string; message: string; restart_initiated_at?: string }> {
+  const resp = await api.put<{ status: string; message: string; restart_initiated_at?: string }>('/api/rules/config', cfg)
   return resp.data
 }
 

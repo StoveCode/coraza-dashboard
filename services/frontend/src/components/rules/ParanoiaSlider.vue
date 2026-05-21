@@ -18,7 +18,7 @@
           ]"
         ></span>
       </button>
-      <span class="text-sm text-gray-300">Paranoia Level aktivieren</span>
+      <span class="text-sm text-gray-300">Enable Paranoia Level</span>
     </div>
 
     <!-- Disabled info box -->
@@ -27,7 +27,7 @@
         <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <span>Paranoia Level deaktiviert — Rules können unten manuell konfiguriert werden.</span>
+        <span>Paranoia Level disabled — rules can be configured manually below.</span>
       </div>
     </div>
 
@@ -66,7 +66,7 @@
           </div>
           <p class="text-gray-300 mb-3 leading-relaxed">{{ PARANOIA_INFO[modelValue].description }}</p>
           <div class="mb-2">
-            <span class="text-gray-500 uppercase tracking-wide text-[10px] font-semibold">Abgedeckte Kategorien</span>
+            <span class="text-gray-500 uppercase tracking-wide text-[10px] font-semibold">Covered Categories</span>
             <div class="flex flex-wrap gap-1 mt-1">
               <span
                 v-for="cat in PARANOIA_INFO[modelValue].categories"
@@ -110,35 +110,35 @@ const PARANOIA_INFO: Record<number, {
 }> = {
   1: {
     label: 'Level 1 — Standard',
-    rules: '213 Rules aktiv (CRS v4)',
-    description: 'Grundschutz gegen die häufigsten Angriffe. Kaum False Positives. Für die meisten Webapplikationen geeignet.',
-    categories: ['SQL Injection (Basis)', 'XSS (Basis)', 'Path Traversal', 'Scanner-Erkennung'],
-    falsePositives: 'Sehr gering',
-    recommended: 'Empfohlen für Produktivumgebungen',
+    rules: '213 Rules active (CRS v4)',
+    description: 'Basic protection against the most common attacks. Very few false positives. Suitable for most web applications.',
+    categories: ['SQL Injection (Basic)', 'XSS (Basic)', 'Path Traversal', 'Scanner Detection'],
+    falsePositives: 'Very low',
+    recommended: 'Recommended for production environments',
   },
   2: {
-    label: 'Level 2 — Erhöht',
-    rules: '302 Rules aktiv (CRS v4)',
-    description: 'Erweiterte Erkennung mit aggressiverem Pattern-Matching. Erste False Positives bei komplexen Applikationen möglich.',
-    categories: ['Alles aus PL1', 'SQLi (erweitert)', 'XSS (erweitert)', 'HTTP Protocol Attacks', 'Remote File Inclusion'],
-    falsePositives: 'Gering bis moderat',
-    recommended: 'Gut für sicherheitskritische Apps mit Tuning-Aufwand',
+    label: 'Level 2 — Elevated',
+    rules: '302 Rules active (CRS v4)',
+    description: 'Extended detection with more aggressive pattern matching. Some false positives possible for complex applications.',
+    categories: ['Everything from PL1', 'SQLi (extended)', 'XSS (extended)', 'HTTP Protocol Attacks', 'Remote File Inclusion'],
+    falsePositives: 'Low to moderate',
+    recommended: 'Good for security-critical apps with some tuning effort',
   },
   3: {
-    label: 'Level 3 — Streng',
-    rules: '332 Rules aktiv (CRS v4)',
-    description: 'Sehr restriktiv. Viele False Positives — erfordert intensives Whitelisting. Nur mit sorgfältigem Tuning produktiv einsetzbar.',
-    categories: ['Alles aus PL2', 'PHP Injection', 'Node.js Injection', 'Session Fixation', 'HTTP Splitting'],
-    falsePositives: 'Hoch — Tuning erforderlich',
-    recommended: 'Nur für High-Security mit Whitelist-Betrieb',
+    label: 'Level 3 — Strict',
+    rules: '332 Rules active (CRS v4)',
+    description: 'Very restrictive. Many false positives — requires intensive whitelisting. Only usable in production with careful tuning.',
+    categories: ['Everything from PL2', 'PHP Injection', 'Node.js Injection', 'Session Fixation', 'HTTP Splitting'],
+    falsePositives: 'High — tuning required',
+    recommended: 'Only for high-security environments with whitelist operation',
   },
   4: {
     label: 'Level 4 — Paranoid',
-    rules: '341 Rules aktiv (CRS v4)',
-    description: 'Maximale Erkennung. Extrem viele False Positives. Fast jeder komplexe Request triggert Rules. Nur für Hochsicherheitsumgebungen.',
-    categories: ['Alles aus PL3', 'Erweiterte Encoding-Angriffe', 'Ultra-aggressive Pattern-Matches'],
-    falsePositives: 'Sehr hoch — kaum produktiv nutzbar ohne umfangreiches Tuning',
-    recommended: 'Nur für isolierte Hochsicherheitsumgebungen',
+    rules: '341 Rules active (CRS v4)',
+    description: 'Maximum detection. Extremely many false positives. Almost every complex request triggers rules. Only for high-security environments.',
+    categories: ['Everything from PL3', 'Extended Encoding Attacks', 'Ultra-aggressive Pattern Matches'],
+    falsePositives: 'Very high — barely usable in production without extensive tuning',
+    recommended: 'Only for isolated high-security environments',
   },
 }
 

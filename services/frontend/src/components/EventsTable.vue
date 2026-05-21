@@ -119,9 +119,7 @@ function scoreBadgeClass(ruleId: number, severity: string): string {
 }
 
 async function disableRule(ruleId: number) {
-  await rulesStore.loadConfig()
-  rulesStore.addRuleId(String(ruleId))
-  await rulesStore.save()
+  await rulesStore.disableRuleOnly(String(ruleId))
   toastVisible.value = true
   setTimeout(() => { toastVisible.value = false }, 3000)
 }

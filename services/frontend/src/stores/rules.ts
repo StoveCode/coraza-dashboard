@@ -42,36 +42,54 @@ export const useRulesStore = defineStore('rules', () => {
     }
   }
 
+  // restart status: null | 'pending' | 'success' | 'timeout'
+  const restartStatus = ref<null | 'pending' | 'success' | 'timeout'>(null)
+  const logsOpen = ref(false)
+
   async function save() {
     saving.value = true
     error.value = null
     successMessage.value = null
+    restartStatus.value = 'pending'
     try {
-      await saveRulesConfig(config.value)
+      const result = await saveRulesConfig(config.value)
       savedConfig.value = JSON.parse(JSON.stringify(config.value))
 
-      // Poll SPOA status after save (max 3 attempts, 1s apart, 500ms initial delay)
-      let spoaRunning = false
-      await new Promise(resolve => setTimeout(resolve, 500))
-      for (let i = 0; i < 3; i++) {
-        try {
-          const status = await fetchSPOAStatus()
-          if (status.running) {
-            spoaRunning = true
-            break
+      const initiatedAt = result.restart_initiated_at
+      if (initiatedAt) {
+        let attempts = 0
+        const poll = setInterval(async () => {
+          attempts++
+          try {
+            const status = await fetchSPOAStatus()
+            if (status.started_at && new Date(status.started_at) > new Date(initiatedAt)) {
+              clearInterval(poll)
+              restartStatus.value = 'success'
+              const t = new Date(status.started_at).toLocaleTimeString()
+              successMessage.value = `Config saved — WAF restarted at ${t}`
+              setTimeout(() => { successMessage.value = null; restartStatus.value = null }, 6000)
+            } else if (attempts >= 15) {
+              clearInterval(poll)
+              restartStatus.value = 'timeout'
+              logsOpen.value = true
+            }
+          } catch {
+            if (attempts >= 15) {
+              clearInterval(poll)
+              restartStatus.value = 'timeout'
+              logsOpen.value = true
+            }
           }
-        } catch {
-          // ignore
-        }
-        if (i < 2) await new Promise(resolve => setTimeout(resolve, 1000))
+        }, 1000)
+      } else {
+        // fallback: old behaviour
+        restartStatus.value = 'success'
+        successMessage.value = 'Config saved & WAF reloaded'
+        setTimeout(() => { successMessage.value = null; restartStatus.value = null }, 4000)
       }
-
-      successMessage.value = spoaRunning
-        ? 'Config saved & WAF reloaded'
-        : 'Config saved — WAF restart may have failed. Check logs.'
-      setTimeout(() => { successMessage.value = null }, 4000)
     } catch (e: any) {
       error.value = e?.response?.data?.error ?? e?.message ?? 'Failed to save config'
+      restartStatus.value = null
     } finally {
       saving.value = false
     }
@@ -106,6 +124,12 @@ export const useRulesStore = defineStore('rules', () => {
         config.value.disabled_rule_ids_validated.push(entry)
       }
     }
+  }
+
+  async function disableRuleOnly(id: string) {
+    // Add id to disabled_rule_ids without reloading config from server
+    addRuleId(id)
+    await save()
   }
 
   function removeRuleId(id: string) {
@@ -151,9 +175,12 @@ export const useRulesStore = defineStore('rules', () => {
     saving,
     error,
     successMessage,
+    restartStatus,
+    logsOpen,
     hasUnsavedChanges,
     loadConfig,
     save,
+    disableRuleOnly,
     isCategoryDisabled,
     toggleCategory,
     addRuleId,

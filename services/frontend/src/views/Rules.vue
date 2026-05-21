@@ -112,15 +112,49 @@
         @add="(id: string) => store.addRuleId(id, catalog.value)"
         @remove="store.removeRuleId"
       />
+      <!-- WAF Logs Panel -->
+      <div class="mt-5">
+        <button
+          @click="store.logsOpen = !store.logsOpen"
+          class="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+        >
+          <svg
+            class="w-3.5 h-3.5 transition-transform"
+            :class="store.logsOpen ? 'rotate-90' : ''"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+          WAF Logs
+          <span class="text-gray-600">(coraza-spoa)</span>
+          <span v-if="store.restartStatus === 'timeout'" class="text-amber-400 ml-1">⚠ WAF restart timeout — check logs below</span>
+          <span v-else-if="store.restartStatus === 'success'" class="text-green-400 ml-1">✓ WAF restarted successfully</span>
+        </button>
+
+        <div v-if="store.logsOpen" class="mt-2 bg-black/50 rounded-lg border border-gray-800 p-3 font-mono text-xs text-gray-300 max-h-64 overflow-y-auto">
+          <div v-if="logsLoading" class="text-gray-500">Loading logs...</div>
+          <div v-else>
+            <div
+              v-for="(line, i) in spoaLogs" :key="i"
+              :class="line.includes('error') || line.includes('ERROR') ? 'text-red-400' :
+                      line.includes('warn') || line.includes('WARN') ? 'text-yellow-400' :
+                      line.includes('info') || line.includes('INFO') ? 'text-blue-300' : 'text-gray-400'"
+              class="leading-relaxed whitespace-pre-wrap break-all"
+            >{{ line }}</div>
+            <div v-if="spoaLogs.length === 0" class="text-gray-600">No log entries</div>
+          </div>
+          <button @click="refreshLogs" class="mt-2 text-gray-500 hover:text-gray-300 text-xs">↻ Refresh</button>
+        </div>
+      </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRulesStore } from '../stores/rules'
 import { fetchRuleCatalog, type CRSRule } from '../api/rules'
-import { fetchSystemVersions, type SystemVersions } from '../api/system'
+import { fetchSystemVersions, fetchSPOALogs, type SystemVersions } from '../api/system'
 import EngineToggle from '../components/rules/EngineToggle.vue'
 import ParanoiaSlider from '../components/rules/ParanoiaSlider.vue'
 import RequestInspectionPanel from '../components/rules/RequestInspectionPanel.vue'
@@ -131,6 +165,8 @@ import DisabledRuleIds from '../components/rules/DisabledRuleIds.vue'
 const store = useRulesStore()
 const catalog = ref<CRSRule[]>([])
 const systemVersions = ref<SystemVersions | null>(null)
+const logsLoading = ref(false)
+const spoaLogs = ref<string[]>([])
 const versionMismatch = computed(() => {
   if (!systemVersions.value) return false
   const bv = systemVersions.value.backend_crs_version
@@ -146,6 +182,17 @@ async function loadCatalog() {
     // catalog stays empty — UI shows "No rules in catalog" per category
   }
 }
+
+async function refreshLogs() {
+  logsLoading.value = true
+  try {
+    const result = await fetchSPOALogs(100)
+    spoaLogs.value = result.lines
+  } catch { spoaLogs.value = ['Failed to load logs'] }
+  finally { logsLoading.value = false }
+}
+
+watch(() => store.logsOpen, (open) => { if (open) refreshLogs() })
 
 onMounted(() => {
   store.loadConfig()
