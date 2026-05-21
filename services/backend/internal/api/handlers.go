@@ -165,6 +165,10 @@ func jsonOK(w http.ResponseWriter, v interface{}) {
 	}
 }
 
+func JSONError(w http.ResponseWriter, msg string, code int) {
+	jsonError(w, msg, code)
+}
+
 func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
@@ -267,6 +271,8 @@ func (h *Handler) PutRulesConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Docker container restart
 	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
 		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 		if err != nil {
 			log.Warn().Err(err).Msg("could not create docker client for coraza-spoa restart")
@@ -274,7 +280,6 @@ func (h *Handler) PutRulesConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		defer cli.Close()
 
-		ctx := context.Background()
 		containers, err := cli.ContainerList(ctx, container.ListOptions{
 			Filters: filters.NewArgs(filters.Arg("name", "coraza-spoa")),
 		})
@@ -291,7 +296,7 @@ func (h *Handler) PutRulesConfig(w http.ResponseWriter, r *http.Request) {
 		log.Info().Msg("coraza-spoa restarted after config update")
 	}()
 
-	jsonOK(w, map[string]string{"status": "ok", "message": "Config updated, coraza-spoa reloading..."})
+	jsonOK(w, map[string]string{"status": "ok", "message": "Config updated, coraza-spoa reloading...", "restart_initiated_at": time.Now().UTC().Format(time.RFC3339)})
 }
 
 func (h *Handler) GetRuleCategories(w http.ResponseWriter, r *http.Request) {
@@ -327,6 +332,20 @@ func (h *Handler) Ingest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var insertErr bool
+
+	tryInsert := func(event *models.WAFEvent) {
+		if event == nil {
+			return
+		}
+		if err := db.InsertEvent(r.Context(), h.pool, event); err != nil {
+			log.Error().Err(err).Msg("ingest: failed to insert WAF event")
+			insertErr = true
+		} else {
+			log.Info().Str("unique_id", event.UniqueID).Int("rule_id", event.RuleID).Msg("ingest: inserted WAF event")
+		}
+	}
+
 	// Fluent Bit HTTP output sends a JSON array of records:
 	// [{"container_id":"...","container_name":"...","source":"stdout","log":"<raw coraza json>"},...]
 	var records []map[string]interface{}
@@ -334,14 +353,7 @@ func (h *Handler) Ingest(w http.ResponseWriter, r *http.Request) {
 		// Array of records from Fluent Bit
 		for _, rec := range records {
 			if logStr, ok := rec["log"].(string); ok && logStr != "" {
-				event := parser.ParseLine([]byte(logStr))
-				if event != nil {
-					if err := db.InsertEvent(r.Context(), h.pool, event); err != nil {
-						log.Error().Err(err).Msg("ingest: failed to insert WAF event")
-					} else {
-						log.Info().Str("unique_id", event.UniqueID).Int("rule_id", event.RuleID).Msg("ingest: inserted WAF event")
-					}
-				}
+				tryInsert(parser.ParseLine([]byte(logStr)))
 			}
 		}
 	} else {
@@ -350,34 +362,18 @@ func (h *Handler) Ingest(w http.ResponseWriter, r *http.Request) {
 			Log string `json:"log"`
 		}
 		if err := json.Unmarshal(body, &wrapper); err == nil && wrapper.Log != "" {
-			event := parser.ParseLine([]byte(wrapper.Log))
-			if event != nil {
-				if err := db.InsertEvent(r.Context(), h.pool, event); err != nil {
-					log.Error().Err(err).Msg("ingest: failed to insert WAF event")
-				} else {
-					log.Info().Str("unique_id", event.UniqueID).Int("rule_id", event.RuleID).Msg("ingest: inserted WAF event")
-				}
-			}
+			tryInsert(parser.ParseLine([]byte(wrapper.Log)))
 		} else {
 			// Last fallback: try to parse body directly as a log line
-			event := parser.ParseLine(body)
-			if event != nil {
-				if err := db.InsertEvent(r.Context(), h.pool, event); err != nil {
-					log.Error().Err(err).Msg("ingest: failed to insert WAF event")
-				} else {
-					log.Info().Str("unique_id", event.UniqueID).Int("rule_id", event.RuleID).Msg("ingest: inserted WAF event")
-				}
-			}
+			tryInsert(parser.ParseLine(body))
 		}
 	}
-	w.WriteHeader(http.StatusNoContent)
-}
 
-func min(a, b int) int {
-	if a < b {
-		return a
+	if insertErr {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-	return b
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // GetSPOAStatus returns the running state and start time of the coraza-spoa container.

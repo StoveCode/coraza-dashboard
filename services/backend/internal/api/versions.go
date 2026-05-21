@@ -3,15 +3,18 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/rs/zerolog/log"
 
 	"github.com/corazawaf/coraza-dashboard/internal/catalog"
@@ -117,4 +120,81 @@ func parseCRSVersionFromOutput(output string) string {
 		}
 	}
 	return ""
+}
+
+// GetSPOALogs returns the last N log lines from the coraza-spoa container.
+func (h *Handler) GetSPOALogs(w http.ResponseWriter, r *http.Request) {
+	tailStr := r.URL.Query().Get("tail")
+	if tailStr == "" {
+		tailStr = "100"
+	}
+	tailN, err := strconv.Atoi(tailStr)
+	if err != nil || tailN < 1 || tailN > 500 {
+		tailN = 100
+	}
+
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		jsonError(w, "docker unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	defer cli.Close()
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	containers, err := cli.ContainerList(ctx, container.ListOptions{
+		Filters: filters.NewArgs(filters.Arg("name", "coraza-spoa")),
+	})
+	if err != nil {
+		jsonError(w, "failed to list containers", http.StatusInternalServerError)
+		return
+	}
+
+	var containerID string
+	for _, c := range containers {
+		for _, name := range c.Names {
+			if strings.Contains(name, "coraza-spoa") {
+				containerID = c.ID
+				break
+			}
+		}
+		if containerID != "" {
+			break
+		}
+	}
+	if containerID == "" {
+		jsonError(w, "coraza-spoa container not found", http.StatusNotFound)
+		return
+	}
+
+	logOpts := container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Tail:       strconv.Itoa(tailN),
+		Timestamps: true,
+	}
+
+	reader, err := cli.ContainerLogs(ctx, containerID, logOpts)
+	if err != nil {
+		jsonError(w, "failed to get logs", http.StatusInternalServerError)
+		return
+	}
+	defer reader.Close()
+
+	// Docker logs stream has 8-byte header per line (multiplexed stream)
+	// stdcopy.StdCopy demultiplexes correctly
+	var buf bytes.Buffer
+	stdcopy.StdCopy(&buf, &buf, reader)
+
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	if len(lines) == 1 && lines[0] == "" {
+		lines = []string{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"lines": lines,
+		"count": len(lines),
+	})
 }

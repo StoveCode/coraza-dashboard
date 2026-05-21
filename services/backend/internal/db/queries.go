@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,6 +18,7 @@ func InsertEvent(ctx context.Context, pool *pgxpool.Pool, e *models.WAFEvent) er
 			 severity, severity_id, phase, phase_id, disruptive, tags, data, unique_id, raw_log,
 			 anomaly_score, block_type)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+		ON CONFLICT (unique_id) DO NOTHING
 	`, e.Timestamp, e.Client, e.Server, e.URI, e.RuleID, e.RuleMsg, e.RuleFile,
 		e.Severity, e.SeverityID, e.Phase, e.PhaseID, e.Disruptive,
 		e.Tags, e.Data, e.UniqueID, e.RawLog, e.AnomalyScore, e.BlockType)
@@ -49,37 +51,37 @@ func ListEvents(ctx context.Context, pool *pgxpool.Pool, f ListFilter) (*ListRes
 	i := 1
 
 	if !f.From.IsZero() {
-		where += " AND timestamp >= $" + itoa(i)
+	where += " AND timestamp >= $" + strconv.Itoa(i)
 		args = append(args, f.From)
 		i++
 	}
 	if !f.To.IsZero() {
-		where += " AND timestamp <= $" + itoa(i)
+	where += " AND timestamp <= $" + strconv.Itoa(i)
 		args = append(args, f.To)
 		i++
 	}
 	if f.Disruptive != nil {
-		where += " AND disruptive = $" + itoa(i)
+	where += " AND disruptive = $" + strconv.Itoa(i)
 		args = append(args, *f.Disruptive)
 		i++
 	}
 	if f.ClientIP != "" {
-		where += " AND client_ip = $" + itoa(i)
+	where += " AND client_ip = $" + strconv.Itoa(i)
 		args = append(args, f.ClientIP)
 		i++
 	}
 	if f.RuleID != 0 {
-		where += " AND rule_id = $" + itoa(i)
+	where += " AND rule_id = $" + strconv.Itoa(i)
 		args = append(args, f.RuleID)
 		i++
 	}
 	if f.Tag != "" {
-		where += " AND $" + itoa(i) + " = ANY(tags)"
+	where += " AND $" + strconv.Itoa(i) + " = ANY(tags)"
 		args = append(args, f.Tag)
 		i++
 	}
 	if f.BlockType != "" {
-		where += " AND block_type = $" + itoa(i)
+	where += " AND block_type = $" + strconv.Itoa(i)
 		args = append(args, f.BlockType)
 		i++
 	}
@@ -104,7 +106,7 @@ func ListEvents(ctx context.Context, pool *pgxpool.Pool, f ListFilter) (*ListRes
 		       anomaly_score, block_type
 		FROM waf_events `+where+`
 		ORDER BY timestamp DESC
-		LIMIT $`+itoa(i)+` OFFSET $`+itoa(i+1), args...)
+		LIMIT $`+strconv.Itoa(i)+` OFFSET $`+strconv.Itoa(i+1), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -255,22 +257,6 @@ func GetStats(ctx context.Context, pool *pgxpool.Pool) (*models.Stats, error) {
 	}
 
 	return &s, nil
-}
-
-func itoa(i int) string {
-	return intToStr(i)
-}
-
-func intToStr(i int) string {
-	if i == 0 {
-		return "0"
-	}
-	b := []byte{}
-	for i > 0 {
-		b = append([]byte{byte('0' + i%10)}, b...)
-		i /= 10
-	}
-	return string(b)
 }
 
 // GetRulesConfig fetches the current rules configuration (row id=1).

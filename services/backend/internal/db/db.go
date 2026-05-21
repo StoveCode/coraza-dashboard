@@ -74,6 +74,13 @@ CREATE INDEX IF NOT EXISTS idx_waf_events_disruptive ON waf_events(disruptive);
 CREATE INDEX IF NOT EXISTS idx_waf_events_rule_id    ON waf_events(rule_id);
 ALTER TABLE waf_events ADD COLUMN IF NOT EXISTS anomaly_score INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE waf_events ADD COLUMN IF NOT EXISTS block_type VARCHAR(10) NOT NULL DEFAULT '';
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'waf_events_unique_id_key'
+    ) THEN
+        ALTER TABLE waf_events ADD CONSTRAINT waf_events_unique_id_key UNIQUE (unique_id);
+    END IF;
+END $$;
 `
 
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {

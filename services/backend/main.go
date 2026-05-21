@@ -96,6 +96,12 @@ func main() {
 	r.Use(corsMiddleware(corsOrigins))
 
 	h := api.NewHandler(pool, sc)
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		api.JSONError(w, "not found", http.StatusNotFound)
+	})
+	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+		api.JSONError(w, "method not allowed", http.StatusMethodNotAllowed)
+	})
 	r.Get("/api/health", h.Health)
 	r.Get("/api/events", h.Events)
 	r.Get("/api/stats", h.Stats)
@@ -107,6 +113,7 @@ func main() {
 	r.Get("/api/rules/catalog", h.GetRuleCatalog)
 	r.Get("/api/system/versions", h.GetSystemVersions)
 	r.Get("/api/system/spoa-status", h.GetSPOAStatus)
+	r.Get("/api/system/spoa-logs", h.GetSPOALogs)
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
@@ -158,7 +165,7 @@ func corsMiddleware(allowedOrigins string) func(http.Handler) http.Handler {
 					w.Header().Set("Access-Control-Allow-Origin", o)
 				}
 			}
-			w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)

@@ -43,7 +43,11 @@ func (t *Tailer) Run(ctx context.Context) {
 		tl, err := tail.TailFile(t.logFile, cfg)
 		if err != nil {
 			log.Warn().Err(err).Str("file", t.logFile).Msg("tail error, retrying in 5s")
-			time.Sleep(5 * time.Second)
+			select {
+			case <-time.After(5 * time.Second):
+			case <-ctx.Done():
+				return
+			}
 			continue
 		}
 
@@ -53,13 +57,16 @@ func (t *Tailer) Run(ctx context.Context) {
 				continue
 			}
 			t.processLine(ctx, []byte(line.Text))
+			}
+			// Channel closed (file gone?), retry
+			log.Warn().Str("file", t.logFile).Msg("tail channel closed, reopening")
+			select {
+			case <-time.After(2 * time.Second):
+			case <-ctx.Done():
+				return
+			}
 		}
-
-		// Channel closed (file gone?), retry
-		log.Warn().Str("file", t.logFile).Msg("tail channel closed, reopening")
-		time.Sleep(2 * time.Second)
 	}
-}
 
 func (t *Tailer) processLine(ctx context.Context, raw []byte) {
 	event := parser.ParseLine(raw)
