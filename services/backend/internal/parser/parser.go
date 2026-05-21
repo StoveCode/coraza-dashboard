@@ -73,21 +73,18 @@ func ParseLine(raw []byte) *models.WAFEvent {
 		event.Timestamp = time.Now().UTC()
 	}
 
-	// Parse anomaly score and block type for blocking rules
+	// Parse anomaly score from msg for all events (block rules contain "Total Score: N")
+	if match := anomalyScoreRe.FindStringSubmatch(m.Msg); len(match) == 2 {
+		if score, err := strconv.Atoi(match[1]); err == nil {
+			event.AnomalyScore = score
+		}
+	}
+
+	// Set block type for blocking rules
 	if m.RuleID == 949110 || m.RuleID == 949111 {
 		event.BlockType = "inbound"
-		if match := anomalyScoreRe.FindStringSubmatch(m.Msg); len(match) == 2 {
-			if score, err := strconv.Atoi(match[1]); err == nil {
-				event.AnomalyScore = score
-			}
-		}
 	} else if m.RuleID == 959100 {
 		event.BlockType = "outbound"
-		if match := anomalyScoreRe.FindStringSubmatch(m.Msg); len(match) == 2 {
-			if score, err := strconv.Atoi(match[1]); err == nil {
-				event.AnomalyScore = score
-			}
-		}
 	}
 
 	return event
