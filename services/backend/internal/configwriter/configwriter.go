@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -73,7 +74,20 @@ func WriteConfig(cfg *models.RulesConfig) error {
 	return os.WriteFile(configPath, []byte(content), 0644)
 }
 
+var ruleIDSanitizer = regexp.MustCompile(`^\d+$`)
+
+func sanitizeRuleIDs(ids []string) []string {
+	result := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if ruleIDSanitizer.MatchString(id) {
+			result = append(result, id)
+		}
+	}
+	return result
+}
+
 func GenerateYAML(cfg *models.RulesConfig) (string, error) {
+	sanitizedIDs := sanitizeRuleIDs(cfg.DisabledRuleIds)
 	data := templateData{
 		EngineMode:           cfg.EngineMode,
 		ParanoiaLevel:        cfg.ParanoiaLevel,
@@ -81,8 +95,8 @@ func GenerateYAML(cfg *models.RulesConfig) (string, error) {
 		InboundThreshold:     cfg.InboundThreshold,
 		OutboundThreshold: cfg.OutboundThreshold,
 		CustomThresholds:  cfg.InboundThreshold != 5 || cfg.OutboundThreshold != 4,
-		DisabledRuleIds:   len(cfg.DisabledRuleIds) > 0,
-		DisabledRuleIdsStr: strings.Join(cfg.DisabledRuleIds, " "),
+		DisabledRuleIds:   len(sanitizedIDs) > 0,
+		DisabledRuleIdsStr: strings.Join(sanitizedIDs, " "),
 		DisabledTags:      len(cfg.DisabledTags) > 0,
 		DisabledTagsList:  cfg.DisabledTags,
 		ResponseCheck:     cfg.ResponseCheck,

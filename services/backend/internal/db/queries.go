@@ -127,6 +127,14 @@ func ListEvents(ctx context.Context, pool *pgxpool.Pool, f ListFilter) (*ListRes
 // GetStats returns aggregated statistics.
 func GetStats(ctx context.Context, pool *pgxpool.Pool) (*models.Stats, error) {
 	var s models.Stats
+	// Initialize slices to empty (not nil) so JSON encodes as [] not null
+	s.EventsPerHour = []models.HourBucket{}
+	s.TopIPs = []models.TopEntry{}
+	s.TopIPsBlocked = []models.TopEntry{}
+	s.TopRules = []models.TopRule{}
+	s.TopTags = []models.TopEntry{}
+	s.TopPhases = []models.TopEntry{}
+	s.ScoreDistribution = []models.ScoreBucket{}
 
 	// Counts
 	_ = pool.QueryRow(ctx, "SELECT COUNT(DISTINCT unique_id) FROM waf_events WHERE rule_id IN (949110, 949111)").Scan(&s.TotalInboundBlocks)
@@ -250,17 +258,17 @@ func GetStats(ctx context.Context, pool *pgxpool.Pool) (*models.Stats, error) {
 }
 
 func itoa(i int) string {
-	return strconv(i)
+	return intToStr(i)
 }
 
-func strconv(n int) string {
-	if n == 0 {
+func intToStr(i int) string {
+	if i == 0 {
 		return "0"
 	}
 	b := []byte{}
-	for n > 0 {
-		b = append([]byte{byte('0' + n%10)}, b...)
-		n /= 10
+	for i > 0 {
+		b = append([]byte{byte('0' + i%10)}, b...)
+		i /= 10
 	}
 	return string(b)
 }
@@ -288,10 +296,12 @@ func GetRulesConfig(ctx context.Context, pool *pgxpool.Pool) (*models.RulesConfi
 // SaveRulesConfig saves the rules configuration (upsert on id=1).
 func SaveRulesConfig(ctx context.Context, pool *pgxpool.Pool, cfg *models.RulesConfig) error {
 	_, err := pool.Exec(ctx, `
-		UPDATE rules_config
+		INSERT INTO rules_config (id, engine_mode, paranoia_level, paranoia_level_enabled, inbound_threshold, outbound_threshold,
+		    disabled_rule_ids, disabled_tags, response_check, updated_at)
+		VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, NOW())
+		ON CONFLICT (id) DO UPDATE
 		SET engine_mode=$1, paranoia_level=$2, paranoia_level_enabled=$3, inbound_threshold=$4, outbound_threshold=$5,
 		    disabled_rule_ids=$6, disabled_tags=$7, response_check=$8, updated_at=NOW()
-		WHERE id=1
 	`, cfg.EngineMode, cfg.ParanoiaLevel, cfg.ParanoiaLevelEnabled, cfg.InboundThreshold, cfg.OutboundThreshold,
 		cfg.DisabledRuleIds, cfg.DisabledTags, cfg.ResponseCheck)
 	return err

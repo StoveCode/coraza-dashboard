@@ -3,8 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -49,11 +51,38 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Events(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
-	limit, _ := strconv.Atoi(q.Get("limit"))
-	if limit == 0 {
+	var limit int
+	if v := q.Get("limit"); v != "" {
+		parsed, err := strconv.Atoi(v)
+		if err != nil {
+			jsonError(w, "limit must be an integer", http.StatusBadRequest)
+			return
+		}
+		if parsed < 1 {
+			jsonError(w, "limit must be >= 1", http.StatusBadRequest)
+			return
+		}
+		if parsed > 1000 {
+			parsed = 1000
+		}
+		limit = parsed
+	} else {
 		limit = 50
 	}
-	offset, _ := strconv.Atoi(q.Get("offset"))
+
+	var offset int
+	if v := q.Get("offset"); v != "" {
+		parsed, err := strconv.Atoi(v)
+		if err != nil {
+			jsonError(w, "offset must be an integer", http.StatusBadRequest)
+			return
+		}
+		if parsed < 0 {
+			jsonError(w, "offset must be >= 0", http.StatusBadRequest)
+			return
+		}
+		offset = parsed
+	}
 
 	f := db.ListFilter{
 		Limit:    limit,
@@ -62,14 +91,20 @@ func (h *Handler) Events(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if v := q.Get("from"); v != "" {
-		if t, err := time.Parse(time.RFC3339, v); err == nil {
-			f.From = t
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			jsonError(w, "from must be RFC3339 formatted", http.StatusBadRequest)
+			return
 		}
+		f.From = t
 	}
 	if v := q.Get("to"); v != "" {
-		if t, err := time.Parse(time.RFC3339, v); err == nil {
-			f.To = t
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			jsonError(w, "to must be RFC3339 formatted", http.StatusBadRequest)
+			return
 		}
+		f.To = t
 	}
 	if v := q.Get("disruptive"); v != "" {
 		b := v == "true"
@@ -209,6 +244,15 @@ func (h *Handler) PutRulesConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	if cfg.DisabledTags == nil {
 		cfg.DisabledTags = []string{}
+	}
+
+	// Validate rule IDs: only numeric values allowed
+	ruleIDPattern := regexp.MustCompile(`^\d+$`)
+	for _, id := range cfg.DisabledRuleIds {
+		if !ruleIDPattern.MatchString(id) {
+			jsonError(w, fmt.Sprintf("invalid rule ID: %q (must be numeric)", id), http.StatusBadRequest)
+			return
+		}
 	}
 
 	if err := db.SaveRulesConfig(r.Context(), h.pool, &cfg); err != nil {

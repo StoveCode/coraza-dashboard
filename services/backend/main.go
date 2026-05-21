@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -134,9 +135,28 @@ func main() {
 }
 
 func corsMiddleware(allowedOrigins string) func(http.Handler) http.Handler {
+	originSet := make(map[string]bool)
+	for _, o := range strings.Split(allowedOrigins, ",") {
+		o = strings.TrimSpace(o)
+		if o != "" {
+			originSet[o] = true
+		}
+	}
+	// Fallback if nothing parsed
+	if len(originSet) == 0 {
+		originSet["http://localhost:3000"] = true
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", allowedOrigins)
+			origin := r.Header.Get("Origin")
+			if originSet[origin] {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+			} else if len(originSet) == 1 {
+				// Single origin configured — set it directly (simpler)
+				for o := range originSet {
+					w.Header().Set("Access-Control-Allow-Origin", o)
+				}
+			}
 			w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 			if r.Method == http.MethodOptions {

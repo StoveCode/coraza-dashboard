@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -56,7 +57,9 @@ func getSPOAInfo() (crsVersion string, imageName string) {
 	}
 
 	// Try exec /coraza-spoa --version in the running container
-	if ver := execSPOAVersion(ctx, cli, c.ID); ver != "" {
+	ctxTimeout, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if ver := execSPOAVersion(ctxTimeout, cli, c.ID); ver != "" {
 		return ver, imageName
 	}
 

@@ -8,12 +8,14 @@
         type="text"
         placeholder="Rule ID e.g. 920350"
         class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-gray-100 text-sm focus:outline-none focus:border-blue-500 w-52"
+        :class="{ 'border-red-500': validationError }"
       />
       <button
         @click="add"
         class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
       >+ Add</button>
     </div>
+    <p v-if="validationError" class="text-xs text-red-400 mb-2">{{ validationError }}</p>
     <div v-if="ruleIds.length > 0" class="flex flex-wrap gap-1.5">
       <span
         v-for="id in ruleIds"
@@ -38,11 +40,17 @@ const emit = defineEmits<{
 }>()
 
 const newId = ref('')
+const validationError = ref('')
 
 function add() {
-  if (newId.value.trim()) {
-    emit('add', newId.value.trim())
-    newId.value = ''
+  const trimmed = newId.value.trim()
+  if (!trimmed) return
+  if (!/^\d+$/.test(trimmed)) {
+    validationError.value = 'Rule ID must be numeric'
+    return
   }
+  validationError.value = ''
+  emit('add', trimmed)
+  newId.value = ''
 }
 </script>
