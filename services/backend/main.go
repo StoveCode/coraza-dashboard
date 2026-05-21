@@ -106,7 +106,21 @@ func main() {
 	r.Get("/api/events", h.Events)
 	r.Get("/api/stats", h.Stats)
 	r.Get("/api/metrics", h.Metrics)
-	r.Post("/api/ingest", h.Ingest)
+	ingestSecret := os.Getenv("INGEST_SECRET")
+	if ingestSecret != "" {
+		r.With(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				auth := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+				if auth != ingestSecret {
+					api.JSONError(w, "unauthorized", http.StatusUnauthorized)
+					return
+				}
+				next.ServeHTTP(w, r)
+			})
+		}).Post("/api/ingest", h.Ingest)
+	} else {
+		r.Post("/api/ingest", h.Ingest) // no secret = open (backward compat)
+	}
 	r.Get("/api/rules/config", h.GetRulesConfig)
 	r.Put("/api/rules/config", h.PutRulesConfig)
 	r.Get("/api/rules/categories", h.GetRuleCategories)
@@ -122,14 +136,17 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:    ":" + port,
-		Handler: r,
+		Addr:         ":" + port,
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	go func() {
-		log.Info().Str("port", port).Msg("starting HTTP server")
+		log.Info().Str("addr", ":"+port).Msg("starting server")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal().Err(err).Msg("server error")
+			log.Fatal().Err(err).Msg("server failed")
 		}
 	}()
 
