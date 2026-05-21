@@ -31,3 +31,13 @@ export async function fetchSPOALogs(tail = 100): Promise<SPOALogs> {
   const resp = await api.get<SPOALogs>(`/api/system/spoa-logs?tail=${tail}`)
   return resp.data
 }
+
+export interface ServiceLogs extends SPOALogs {
+  running?: boolean
+  error?: string
+}
+
+export async function fetchServiceLogs(service: string, tail = 100): Promise<ServiceLogs> {
+  const resp = await api.get<ServiceLogs>(`/api/system/logs?service=${encodeURIComponent(service)}&tail=${tail}`)
+  return resp.data
+}

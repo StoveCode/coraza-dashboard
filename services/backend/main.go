@@ -114,6 +114,7 @@ func main() {
 	r.Get("/api/system/versions", h.GetSystemVersions)
 	r.Get("/api/system/spoa-status", h.GetSPOAStatus)
 	r.Get("/api/system/spoa-logs", h.GetSPOALogs)
+	r.Get("/api/system/logs", h.GetServiceLogs)
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {

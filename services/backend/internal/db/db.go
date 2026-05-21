@@ -78,6 +78,10 @@ DO $$ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'waf_events_unique_id_key'
     ) THEN
+        -- Remove duplicates before adding unique constraint (keep lowest id)
+        DELETE FROM waf_events w1
+        USING waf_events w2
+        WHERE w1.id > w2.id AND w1.unique_id = w2.unique_id AND w1.unique_id IS NOT NULL AND w1.unique_id != '';
         ALTER TABLE waf_events ADD CONSTRAINT waf_events_unique_id_key UNIQUE (unique_id);
     END IF;
 END $$;

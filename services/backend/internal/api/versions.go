@@ -20,6 +20,15 @@ import (
 	"github.com/corazawaf/coraza-dashboard/internal/catalog"
 )
 
+// allowedServices is a whitelist of service names for the generic logs endpoint.
+var allowedServices = map[string]bool{
+	"coraza-spoa": true,
+	"backend":     true,
+	"haproxy":     true,
+	"fluentbit":   true,
+	"postgres":    true,
+}
+
 // GetSystemVersions returns CRS versions for backend and coraza-spoa.
 func (h *Handler) GetSystemVersions(w http.ResponseWriter, r *http.Request) {
 	spoaVersion, spoaImage := getSPOAInfo()
@@ -41,12 +50,23 @@ func getSPOAInfo() (crsVersion string, imageName string) {
 	defer cli.Close()
 
 	ctx := context.Background()
+	// Use label-based detection for robustness
+	filterArgs := filters.NewArgs()
+	filterArgs.Add("label", "com.docker.compose.service=coraza-spoa")
 	containers, err := cli.ContainerList(ctx, container.ListOptions{
-		Filters: filters.NewArgs(filters.Arg("name", "coraza-spoa")),
+		All:     true, // include stopped containers
+		Filters: filterArgs,
 	})
-	if err != nil {
-		log.Warn().Err(err).Msg("docker container list failed")
-		return "unknown", "unknown"
+	if err != nil || len(containers) == 0 {
+		// fallback: name-based search
+		containers, err = cli.ContainerList(ctx, container.ListOptions{
+			All:     true,
+			Filters: filters.NewArgs(filters.Arg("name", "coraza-spoa")),
+		})
+		if err != nil {
+			log.Warn().Err(err).Msg("docker container list failed")
+			return "unknown", "unknown"
+		}
 	}
 	if len(containers) == 0 {
 		log.Warn().Msg("coraza-spoa container not found")
@@ -59,18 +79,17 @@ func getSPOAInfo() (crsVersion string, imageName string) {
 		imageName = strings.TrimPrefix(c.Names[0], "/")
 	}
 
-	// Try exec /coraza-spoa --version in the running container
-	ctxTimeout, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	if ver := execSPOAVersion(ctxTimeout, cli, c.ID); ver != "" {
-		return ver, imageName
+	// Only exec --version if container is running
+	if c.State == "running" {
+		ctxTimeout, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		if ver := execSPOAVersion(ctxTimeout, cli, c.ID); ver != "" {
+			return ver, imageName
+		}
 	}
 
 	// Fallback: use image tag as version hint
-	if len(containers[0].Names) > 0 {
-		return c.Image, imageName
-	}
-	return "unknown", imageName
+	return c.Image, imageName
 }
 
 // execSPOAVersion runs /coraza-spoa --version in the container and parses the CRS version.
@@ -122,8 +141,60 @@ func parseCRSVersionFromOutput(output string) string {
 	return ""
 }
 
-// GetSPOALogs returns the last N log lines from the coraza-spoa container.
+// findContainerByService finds a container by compose service label, with name-based fallback.
+// Pass all=true to include stopped containers.
+func findContainerByService(ctx context.Context, cli *client.Client, service string, all bool) (string, bool, error) {
+	// Primary: label-based
+	labelArgs := filters.NewArgs()
+	labelArgs.Add("label", "com.docker.compose.service="+service)
+	containers, err := cli.ContainerList(ctx, container.ListOptions{
+		All:     all,
+		Filters: labelArgs,
+	})
+	if err != nil {
+		return "", false, err
+	}
+	if len(containers) > 0 {
+		return containers[0].ID, containers[0].State == "running", nil
+	}
+	// Fallback: name-based
+	containers, err = cli.ContainerList(ctx, container.ListOptions{
+		All:     all,
+		Filters: filters.NewArgs(filters.Arg("name", service)),
+	})
+	if err != nil {
+		return "", false, err
+	}
+	if len(containers) > 0 {
+		return containers[0].ID, containers[0].State == "running", nil
+	}
+	return "", false, nil
+}
+
+// GetSPOALogs returns the last N log lines from the coraza-spoa container (backward compat).
 func (h *Handler) GetSPOALogs(w http.ResponseWriter, r *http.Request) {
+	// Delegate to generic handler with service=coraza-spoa
+	q := r.URL.Query()
+	if q.Get("service") == "" {
+		// inject service param by wrapping
+		q.Set("service", "coraza-spoa")
+		r.URL.RawQuery = q.Encode()
+	}
+	h.GetServiceLogs(w, r)
+}
+
+// GetServiceLogs returns the last N log lines from any allowed service container.
+// GET /api/system/logs?service=coraza-spoa&tail=100
+func (h *Handler) GetServiceLogs(w http.ResponseWriter, r *http.Request) {
+	service := r.URL.Query().Get("service")
+	if service == "" {
+		service = "coraza-spoa"
+	}
+	if !allowedServices[service] {
+		jsonError(w, "service not allowed", http.StatusBadRequest)
+		return
+	}
+
 	tailStr := r.URL.Query().Get("tail")
 	if tailStr == "" {
 		tailStr = "100"
@@ -135,7 +206,13 @@ func (h *Handler) GetSPOALogs(w http.ResponseWriter, r *http.Request) {
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		jsonError(w, "docker unavailable", http.StatusServiceUnavailable)
+		// Return 200 with error info — frontend should handle gracefully
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"lines": []string{},
+			"count": 0,
+			"error": "docker unavailable",
+		})
 		return
 	}
 	defer cli.Close()
@@ -143,28 +220,20 @@ func (h *Handler) GetSPOALogs(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	containers, err := cli.ContainerList(ctx, container.ListOptions{
-		Filters: filters.NewArgs(filters.Arg("name", "coraza-spoa")),
-	})
+	containerID, running, err := findContainerByService(ctx, cli, service, true)
 	if err != nil {
 		jsonError(w, "failed to list containers", http.StatusInternalServerError)
 		return
 	}
-
-	var containerID string
-	for _, c := range containers {
-		for _, name := range c.Names {
-			if strings.Contains(name, "coraza-spoa") {
-				containerID = c.ID
-				break
-			}
-		}
-		if containerID != "" {
-			break
-		}
-	}
 	if containerID == "" {
-		jsonError(w, "coraza-spoa container not found", http.StatusNotFound)
+		// Return 200 with empty result — not 404 (frontend gets confused)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"lines":   []string{},
+			"count":   0,
+			"error":   "container not found",
+			"running": false,
+		})
 		return
 	}
 
@@ -175,15 +244,21 @@ func (h *Handler) GetSPOALogs(w http.ResponseWriter, r *http.Request) {
 		Timestamps: true,
 	}
 
+	// Docker allows fetching logs from stopped containers too
 	reader, err := cli.ContainerLogs(ctx, containerID, logOpts)
 	if err != nil {
-		jsonError(w, "failed to get logs", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"lines":   []string{},
+			"count":   0,
+			"error":   "failed to get logs: " + err.Error(),
+			"running": running,
+		})
 		return
 	}
 	defer reader.Close()
 
 	// Docker logs stream has 8-byte header per line (multiplexed stream)
-	// stdcopy.StdCopy demultiplexes correctly
 	var buf bytes.Buffer
 	stdcopy.StdCopy(&buf, &buf, reader)
 
@@ -194,7 +269,8 @@ func (h *Handler) GetSPOALogs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"lines": lines,
-		"count": len(lines),
+		"lines":   lines,
+		"count":   len(lines),
+		"running": running,
 	})
 }

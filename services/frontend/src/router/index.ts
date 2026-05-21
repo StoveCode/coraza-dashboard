@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Dashboard from '../views/Dashboard.vue'
 import Events from '../views/Events.vue'
 import Rules from '../views/Rules.vue'
+import Logs from '../views/Logs.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -9,6 +10,7 @@ const router = createRouter({
     { path: '/', component: Dashboard },
     { path: '/events', component: Events },
     { path: '/rules', component: Rules },
+    { path: '/logs', name: 'Logs', component: Logs },
   ],
 })
 

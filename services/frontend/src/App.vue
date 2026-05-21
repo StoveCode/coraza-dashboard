@@ -5,6 +5,7 @@
       <router-link to="/" class="text-gray-300 hover:text-white transition-colors">Dashboard</router-link>
       <router-link to="/events" class="text-gray-300 hover:text-white transition-colors">Events</router-link>
       <router-link to="/rules" class="text-gray-300 hover:text-white transition-colors">Rules</router-link>
+      <router-link to="/logs" class="text-gray-300 hover:text-white transition-colors">Logs</router-link>
     </nav>
     <router-view />
   </div>
