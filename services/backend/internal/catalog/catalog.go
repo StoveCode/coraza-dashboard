@@ -152,7 +152,14 @@ func TagLabel(tag string) string {
 	if l, ok := m[tag]; ok {
 		return l
 	}
-	return strings.Title(strings.ReplaceAll(strings.TrimPrefix(tag, "attack-"), "-", " "))
+	return toTitle(strings.ReplaceAll(strings.TrimPrefix(tag, "attack-"), "-", " "))
+}
+
+func toTitle(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 // TagDescription returns a description for a CRS attack tag.
