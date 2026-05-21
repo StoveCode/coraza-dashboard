@@ -19,7 +19,7 @@
     <!-- 2-column charts -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <!-- Anomaly Score Widget -->
-      <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+      <div v-if="(store.stats?.max_anomaly_score ?? 0) > 0" class="bg-gray-900 border border-gray-800 rounded-xl p-4">
         <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Anomaly Score</h3>
         <div class="flex gap-6 mb-3">
           <div>
