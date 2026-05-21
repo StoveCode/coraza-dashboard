@@ -2,7 +2,7 @@
 
 Logging & Monitoring Dashboard für **OWASP Coraza WAF** + **HAProxy**.
 
-Zeigt Block-Events, Traffic-Statistiken und WAF-Aktivitäten in einem Dark-Theme Web-Dashboard.
+Zeigt Block-Events, Traffic-Statistiken und WAF-Aktivitäten in einem Dark-Theme Web-Dashboard — inklusive Live-Konfiguration der WAF-Regeln ohne Restart.
 
 ## Architektur
 
@@ -34,45 +34,59 @@ Zeigt Block-Events, Traffic-Statistiken und WAF-Aktivitäten in einem Dark-Theme
 
 ## Services
 
-| Service       | Port  | Beschreibung                                       |
-|---------------|-------|----------------------------------------------------|
-| `haproxy`     | 80    | Reverse Proxy mit Coraza SPOE-Filter               |
-| `haproxy`     | 8404  | HAProxy Stats-Seite (admin/changeme)               |
-| `coraza-spoa` | 9000  | OWASP Coraza WAF Agent (SPOE)                      |
+| Service       | Port  | Beschreibung                                                |
+|---------------|-------|-------------------------------------------------------------|
+| `haproxy`     | 80    | Reverse Proxy mit Coraza SPOE-Filter                        |
+| `haproxy`     | 8404  | HAProxy Stats-Seite (admin/changeme)                        |
+| `coraza-spoa` | 9000  | OWASP Coraza WAF Agent (SPOE) — CRS v4.25.0                 |
 | `fluentbit`   | 24224 | Log-Forwarder: empfängt coraza-spoa Logs, pushed an Backend |
-| `backend`     | 8080  | Go REST API + Ingest Handler                       |
-| `frontend`    | 3000  | Vue 3 Dashboard                                    |
-| `httpbin`     | 8081  | Echo-Backend (für Tests)                           |
-| `postgres`    | 5432  | PostgreSQL Datenbank                               |
+| `backend`     | 8080  | Go REST API + Ingest Handler                                |
+| `frontend`    | 3000  | Vue 3 Dashboard                                             |
+| `httpbin`     | 8081  | Echo-Backend (für Tests)                                    |
+| `postgres`    | 5432  | PostgreSQL Datenbank                                        |
 
 ## Quick Start
 
 ```bash
-# 1. Repo klonen
 git clone https://github.com/StoveCode/coraza-dashboard.git
 cd coraza-dashboard
-
-# 2. Install-Script ausführen (prüft/installiert alle Dependencies, baut coraza-spoa)
 sudo bash scripts/install.sh
 ```
 
+Das war's. **Kein Build nötig** — alle Images kommen direkt von Docker Hub.
+
 Das Install-Script erledigt automatisch:
 - Docker + Docker Compose installieren (apt / dnf / pacman)
-- `coraza-spoa:local` Image bauen (kein öffentliches Image verfügbar)
+- `stove301/coraza-spoa:latest` von Docker Hub pullen
 - `.env` aus `.env.example` anlegen
 - Stack starten + Health-Check
 
-### Manuell starten
+### Manuell starten (ohne Install-Script)
 
 ```bash
-# coraza-spoa Image bauen (einmalig)
-git clone https://github.com/corazawaf/coraza-spoa.git /tmp/coraza-spoa-source
-docker build -f /tmp/coraza-spoa-source/ftw/Dockerfile.coraza_spoa \
-  -t coraza-spoa:local /tmp/coraza-spoa-source
-
+git clone https://github.com/StoveCode/coraza-dashboard.git
+cd coraza-dashboard
 cp .env.example .env
-docker compose up -d --build
+docker compose up -d
 ```
+
+Docker Compose zieht alle Images automatisch von Docker Hub — kein `docker build` erforderlich.
+
+## Docker Hub Images
+
+Alle Images sind öffentlich auf Docker Hub verfügbar:
+
+| Image                                   | Beschreibung                                     |
+|-----------------------------------------|--------------------------------------------------|
+| `stove301/coraza-dashboard-backend`     | Go REST API + Ingest Handler                     |
+| `stove301/coraza-dashboard-frontend`    | Vue 3 Dashboard                                  |
+| `stove301/coraza-spoa`                  | OWASP Coraza WAF SPOE Agent (CRS v4.25.0)        |
+
+**Tags:**
+- `latest` — aktuell stabile Version
+- `crs-v4.25.0` — coraza-spoa mit OWASP CRS v4.25.0
+
+Lokales Bauen ist weiterhin möglich — `build:`-Direktiven sind in `docker-compose.yml` erhalten und werden via `docker compose build` genutzt.
 
 ## URLs
 
@@ -117,28 +131,33 @@ Alle Charts sind standardmäßig kompakt dargestellt. Per **⤢ Expand** Button 
 ### Rules Management (`/rules`)
 Live-Konfiguration der WAF ohne Restart:
 
-| Feature              | Beschreibung                                               |
-|----------------------|------------------------------------------------------------|
-| **Engine Mode**      | `On` (blockieren) / `Detection Only` (nur loggen) / `Off` |
-| **Paranoia Level**   | Level 1–4 — höher = mehr Rules, mehr False Positives       |
-| **Anomaly Thresholds** | Inbound + Outbound Score-Schwellwert                     |
-| **CRS-Kategorien**   | SQLi, XSS, RCE, LFI, SSRF, Scanner etc. per Toggle        |
-| **Einzelne Rules**   | Beliebige Rule-IDs deaktivieren                            |
+| Feature                  | Beschreibung                                                                                        |
+|--------------------------|-----------------------------------------------------------------------------------------------------|
+| **Engine Mode**          | `On` / `Detection Only` / `Off`                                                                     |
+| **Paranoia Level**       | Level 1–4 (oder deaktiviert für manuelle Rule-Auswahl)                                              |
+| **Anomaly Thresholds**   | Inbound (Request) + Outbound (Response) Score-Schwellwert                                           |
+| **Response Check**       | Data Leakage Prevention ein/ausschalten                                                             |
+| **CRS-Kategorien**       | SQLi, XSS, RCE, LFI, SSRF, Scanner etc. per Toggle                                                 |
+| **Rule Picker**          | Einzelne CRS-Rules per Catalog-Suche deaktivieren (ID, Name, Tag, Severity)                         |
+| **Orphaned Rules**       | Disabled Rules die nicht mehr im CRS existieren werden markiert und können entfernt werden          |
+| **CRS Version**          | Aktuell geladene CRS-Version angezeigt, Mismatch-Warning wenn Dashboard ≠ coraza-spoa              |
 
 Änderungen → **Save Changes** → Backend schreibt neues `coraza-spoa.yaml` → `docker compose restart coraza-spoa`
 
 ## API-Referenz (Backend)
 
-| Method | Pfad                  | Beschreibung                                     |
-|--------|-----------------------|--------------------------------------------------|
-| GET    | /api/health           | Health Check                                     |
-| GET    | /api/events           | WAF-Events (paginated, filterbar)                |
-| GET    | /api/stats            | Aggregierte Statistiken                          |
-| GET    | /api/metrics          | Prometheus-Metriken (wenn CORAZA_METRICS_URL gesetzt) |
-| POST   | /api/ingest           | Log-Ingest Endpoint für Fluent Bit               |
-| GET    | /api/rules/config     | Aktuelle Rules-Konfiguration                     |
-| PUT    | /api/rules/config     | Konfiguration speichern                          |
-| GET    | /api/rules/categories | Liste der CRS-Kategorien                         |
+| Method | Pfad                    | Beschreibung                                            |
+|--------|-------------------------|---------------------------------------------------------|
+| GET    | /api/health             | Health Check                                            |
+| GET    | /api/events             | WAF-Events (paginated, filterbar)                       |
+| GET    | /api/stats              | Aggregierte Statistiken                                 |
+| GET    | /api/metrics            | Prometheus-Metriken (wenn CORAZA_METRICS_URL gesetzt)   |
+| POST   | /api/ingest             | Log-Ingest Endpoint für Fluent Bit                      |
+| GET    | /api/rules/config       | Aktuelle Rules-Konfiguration                            |
+| PUT    | /api/rules/config       | Konfiguration speichern                                 |
+| GET    | /api/rules/categories   | Liste der CRS-Kategorien                                |
+| GET    | /api/rules/catalog      | Vollständiger CRS Rule-Catalog (ID, Name, Tag, Severity, PL) |
+| GET    | /api/system/versions    | CRS-Versionen von Backend + coraza-spoa                 |
 
 ### GET /api/events Parameter
 
@@ -156,8 +175,17 @@ Live-Konfiguration der WAF ohne Restart:
 ```json
 {
   "total_blocks": 1234,
+  "total_inbound_blocks": 1100,
+  "total_outbound_blocks": 134,
   "total_detections": 56,
+  "avg_anomaly_score": 7.3,
+  "max_anomaly_score": 25,
+  "score_distribution": [
+    {"range": "0-5", "count": 120},
+    {"range": "6-10", "count": 45}
+  ],
   "top_ips": [{"label": "1.2.3.4", "count": 42}],
+  "top_ips_blocked": [{"label": "1.2.3.4", "count": 38}],
   "top_rules": [{"rule_id": 941100, "msg": "XSS Attack...", "count": 30}],
   "top_tags": [{"label": "attack-xss", "count": 152}],
   "top_phases": [{"label": "request-body", "count": 535}],
@@ -216,7 +244,7 @@ coraza-spoa schreibt **zerolog JSON Lines** auf **stdout**. Fluent Bit empfängt
 
 ## OWASP CRS v4
 
-coraza-spoa lädt automatisch das **OWASP Core Rule Set v4**. Konfiguration in `services/coraza/coraza-spoa.yaml`.
+coraza-spoa lädt automatisch das **OWASP Core Rule Set v4** (aktuell: **v4.25.0**). Konfiguration in `services/coraza/coraza-spoa.yaml`.
 
 ### Paranoia Level
 
@@ -268,10 +296,18 @@ docker compose restart coraza-spoa
 docker compose logs -f coraza-spoa
 ```
 
+## CRS Update-Prozess
+
+Das Dashboard zeigt eine **Mismatch-Warning** wenn die CRS-Version im Backend von der im coraza-spoa abweicht.
+
+Update-Prozess:
+1. Neues `stove301/coraza-spoa:crs-vX.Y.Z` Image erscheint auf Docker Hub
+2. `docker compose pull && docker compose up -d`
+3. Dashboard-Mismatch-Warning verschwindet automatisch
+
 ## Bekannte Einschränkungen
 
 - **Rules Management Reload**: `PUT /api/rules/config` schreibt die neue Config, erfordert aber manuell `docker compose restart coraza-spoa` (coraza-spoa `-autoreload` nutzt fsnotify, was auf Hosts mit vielen inotify-Instanzen fehlschlägt).
-- **coraza-spoa Image**: Kein öffentliches Docker Image — muss lokal gebaut werden (siehe Quick Start).
 
 ## Host-Anforderungen
 

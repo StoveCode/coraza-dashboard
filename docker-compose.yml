@@ -15,7 +15,7 @@ services:
       retries: 10
 
   coraza-spoa:
-    image: coraza-spoa:local
+    image: stove301/coraza-spoa:latest
     entrypoint: ["/coraza-spoa"]
     command: ["-config", "/etc/coraza-spoa/coraza-spoa.yaml"]
     volumes:
@@ -50,7 +50,8 @@ services:
       - "8081:8080"
 
   backend:
-    build: ./services/backend
+    build: ./services/backend   # optional: zum lokalen Bauen
+    image: stove301/coraza-dashboard-backend:latest
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -85,7 +86,8 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ./services/frontend
+    build: ./services/frontend   # optional: zum lokalen Bauen
+    image: stove301/coraza-dashboard-frontend:latest
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:

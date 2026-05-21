@@ -167,28 +167,16 @@ else
 fi
 
 # =============================================================================
-# 4. Build coraza-spoa:local image
+# 4. coraza-spoa image pull
 # =============================================================================
-section "coraza-spoa:local image"
+section "coraza-spoa image"
 
-if docker image inspect coraza-spoa:local &>/dev/null; then
-  warn "Image 'coraza-spoa:local' already exists — skipping build"
+if docker image inspect stove301/coraza-spoa:latest &>/dev/null; then
+  warn "Image 'stove301/coraza-spoa:latest' already present — skipping pull"
 else
-  SPOA_SRC="/tmp/coraza-spoa-source"
-  if [[ -d "$SPOA_SRC/.git" ]]; then
-    ok "coraza-spoa source already cloned — pulling latest..."
-    git -C "$SPOA_SRC" pull --ff-only
-  else
-    ok "Cloning coraza-spoa source..."
-    git clone https://github.com/corazawaf/coraza-spoa.git "$SPOA_SRC"
-  fi
-
-  ok "Building coraza-spoa:local (this may take a few minutes)..."
-  docker build \
-    -f "$SPOA_SRC/ftw/Dockerfile.coraza_spoa" \
-    -t coraza-spoa:local \
-    "$SPOA_SRC"
-  ok "Image 'coraza-spoa:local' built successfully"
+  ok "Pulling stove301/coraza-spoa:latest from Docker Hub..."
+  docker pull stove301/coraza-spoa:latest
+  ok "Image pulled successfully"
 fi
 
 # =============================================================================
@@ -213,7 +201,7 @@ fi
 # =============================================================================
 section "Starting Docker Compose Stack"
 
-docker compose up -d --build
+docker compose up -d
 ok "Stack started"
 
 # =============================================================================
