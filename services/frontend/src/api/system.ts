@@ -10,3 +10,14 @@ export async function fetchSystemVersions(): Promise<SystemVersions> {
   const resp = await api.get<SystemVersions>('/api/system/versions')
   return resp.data
 }
+
+export interface SPOAStatus {
+  running: boolean
+  started_at?: string
+  status: string
+}
+
+export async function fetchSPOAStatus(): Promise<SPOAStatus> {
+  const resp = await api.get<SPOAStatus>('/api/system/spoa-status')
+  return resp.data
+}

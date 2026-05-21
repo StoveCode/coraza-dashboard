@@ -106,6 +106,7 @@ func main() {
 	r.Get("/api/rules/categories", h.GetRuleCategories)
 	r.Get("/api/rules/catalog", h.GetRuleCatalog)
 	r.Get("/api/system/versions", h.GetSystemVersions)
+	r.Get("/api/system/spoa-status", h.GetSPOAStatus)
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {

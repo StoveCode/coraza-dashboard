@@ -379,3 +379,43 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+// GetSPOAStatus returns the running state and start time of the coraza-spoa container.
+func (h *Handler) GetSPOAStatus(w http.ResponseWriter, r *http.Request) {
+	type SPOAStatus struct {
+		Running   bool   `json:"running"`
+		StartedAt string `json:"started_at,omitempty"`
+		Status    string `json:"status"`
+	}
+
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		jsonOK(w, SPOAStatus{Running: false, Status: "unavailable"})
+		return
+	}
+	defer cli.Close()
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	containers, err := cli.ContainerList(ctx, container.ListOptions{
+		All:     true,
+		Filters: filters.NewArgs(filters.Arg("name", "coraza-spoa")),
+	})
+	if err != nil || len(containers) == 0 {
+		jsonOK(w, SPOAStatus{Running: false, Status: "not_found"})
+		return
+	}
+
+	inspect, err := cli.ContainerInspect(ctx, containers[0].ID)
+	if err != nil {
+		jsonOK(w, SPOAStatus{Running: false, Status: "inspect_failed"})
+		return
+	}
+
+	jsonOK(w, SPOAStatus{
+		Running:   inspect.State.Running,
+		StartedAt: inspect.State.StartedAt,
+		Status:    inspect.State.Status,
+	})
+}

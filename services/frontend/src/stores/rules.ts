@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { fetchRulesConfig, saveRulesConfig, fetchRuleCategories, type RulesConfig, type RuleCategory } from '../api/rules'
+import { fetchRulesConfig, saveRulesConfig, fetchRuleCategories, type RulesConfig, type RuleCategory, type CRSRule, type ValidatedRuleId } from '../api/rules'
+import { fetchSPOAStatus } from '../api/system'
 
 export const useRulesStore = defineStore('rules', () => {
   const config = ref<RulesConfig>({
@@ -46,9 +47,28 @@ export const useRulesStore = defineStore('rules', () => {
     error.value = null
     successMessage.value = null
     try {
-      const result = await saveRulesConfig(config.value)
+      await saveRulesConfig(config.value)
       savedConfig.value = JSON.parse(JSON.stringify(config.value))
-      successMessage.value = result.message
+
+      // Poll SPOA status after save (max 3 attempts, 1s apart, 500ms initial delay)
+      let spoaRunning = false
+      await new Promise(resolve => setTimeout(resolve, 500))
+      for (let i = 0; i < 3; i++) {
+        try {
+          const status = await fetchSPOAStatus()
+          if (status.running) {
+            spoaRunning = true
+            break
+          }
+        } catch {
+          // ignore
+        }
+        if (i < 2) await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+
+      successMessage.value = spoaRunning
+        ? 'Config saved & WAF reloaded'
+        : 'Config saved — WAF restart may have failed. Check logs.'
       setTimeout(() => { successMessage.value = null }, 4000)
     } catch (e: any) {
       error.value = e?.response?.data?.error ?? e?.message ?? 'Failed to save config'
@@ -70,10 +90,21 @@ export const useRulesStore = defineStore('rules', () => {
     }
   }
 
-  function addRuleId(id: string) {
+  function addRuleId(id: string, catalog?: CRSRule[]) {
     const trimmed = id.trim()
     if (trimmed && !config.value.disabled_rule_ids.includes(trimmed)) {
       config.value.disabled_rule_ids.push(trimmed)
+      if (config.value.disabled_rule_ids_validated) {
+        const rule = catalog?.find(r => String(r.id) === trimmed)
+        const entry: ValidatedRuleId = {
+          id: trimmed,
+          msg: rule?.msg,
+          tag: rule?.tag,
+          severity: rule?.severity,
+          orphaned: !rule,
+        }
+        config.value.disabled_rule_ids_validated.push(entry)
+      }
     }
   }
 
@@ -88,7 +119,7 @@ export const useRulesStore = defineStore('rules', () => {
     }
   }
 
-  function toggleRuleId(id: string) {
+  function toggleRuleId(id: string, catalog?: CRSRule[]) {
     const idx = config.value.disabled_rule_ids.indexOf(id)
     if (idx >= 0) {
       config.value.disabled_rule_ids.splice(idx, 1)
@@ -99,6 +130,17 @@ export const useRulesStore = defineStore('rules', () => {
       }
     } else {
       config.value.disabled_rule_ids.push(id)
+      if (config.value.disabled_rule_ids_validated) {
+        const rule = catalog?.find(r => String(r.id) === id)
+        const entry: ValidatedRuleId = {
+          id,
+          msg: rule?.msg,
+          tag: rule?.tag,
+          severity: rule?.severity,
+          orphaned: !rule,
+        }
+        config.value.disabled_rule_ids_validated.push(entry)
+      }
     }
   }
 
