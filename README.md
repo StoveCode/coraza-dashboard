@@ -86,7 +86,16 @@ All images are publicly available on Docker Hub:
 - `latest` — current stable version
 - `crs-v4.25.0` — coraza-spoa with OWASP CRS v4.25.0
 
-Local builds are still possible — `build:` directives are preserved in `docker-compose.yml` and used via `docker compose build`.
+Local builds are still possible, but `build:` directives have been removed from `docker-compose.yml` to ensure images are always pulled from Docker Hub. To build locally, either use `docker build` directly in the respective service directory, or create a `docker-compose.override.yml` with the `build:` directives:
+
+```yaml
+# docker-compose.override.yml
+services:
+  backend:
+    build: ./services/backend
+  frontend:
+    build: ./services/frontend
+```
 
 ## URLs
 
